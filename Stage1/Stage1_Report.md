@@ -1,9 +1,7 @@
 # EECS3311 Fall 2026 — Course Project, Stage 1
 # Mealton: AI Smart Recipe and Meal Planning Agent
 
-**Student:** _[Your Name / Student ID]_  **Repository:** _[GitHub URL]_
-
-> Diagrams are written in Mermaid and render automatically on GitHub. Editable UMLet versions of the class diagrams are in the `diagrams/` folder.
+**Student:** _[Rebekah Uson - 221123310]_ 
 
 ### Where to find each Stage 1 deliverable
 
