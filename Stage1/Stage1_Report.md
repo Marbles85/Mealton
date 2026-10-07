@@ -1,7 +1,9 @@
 # EECS3311 Fall 2026 — Course Project, Stage 1
 # Mealton: AI Smart Recipe and Meal Planning Agent
 
-**Student:** _[Rebekah Uson - 221123310]_ 
+**Student:** _[Rebekah Uson - 221123310]_  
+
+> Diagrams are written in Mermaid and render automatically on GitHub. Editable UMLet versions of the class diagrams are in the `diagrams/` folder.
 
 ### Where to find each Stage 1 deliverable
 
@@ -1052,7 +1054,7 @@ else violations (allergen / calories)
   V-->>PS: ValidationResult(violations)
   PS->>AG: generatePlan(req + violations)
   AG-->>PS: WeekPlan (revised)
-  Note over PS,V: second validation; on failure return error to user
+  Note over PS,V: second validation, on failure return error to user
 else LLM error
   LLM-->>AG: error
   AG-->>F: AgentException
