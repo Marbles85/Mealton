@@ -16,4 +16,4 @@ Mealton is an AI agent that helps people decide what to eat. It plans a week of 
 
 - **Features:** 14, including AI meal planning, a prep-day planner, pantry and freshness tracking, recipe recommendations, a shopping list, and the Mealton chat agent.
 - **Design patterns:** Strategy, Observer, Command, Factory Method, Adapter, Facade, Composite and State.
-- **Diagrams:** class, use-case and sequence diagrams are in the [`diagrams/`](diagrams/) folder and in the [Stage 1 report](Stage1_Report.md).
+- **Diagrams:** class, use-case and sequence diagrams are in the [`diagrams/`](Stage1/diagrams/) folder and in the [Stage 1 report](Stage1/Stage1_Report.md).
