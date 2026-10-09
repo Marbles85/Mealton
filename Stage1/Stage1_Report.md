@@ -3,7 +3,7 @@
 
 **Student:** Rebekah Uson - 221123310
 
-> All diagrams are in the `diagrams/` folder as PNG images, along with editable UMLet source files (`.uxf`).
+> All diagrams are in the `diagrams/` folder as PNG images.
 
 ### Where to find each Stage 1 deliverable
 
