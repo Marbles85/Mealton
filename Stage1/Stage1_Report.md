@@ -26,14 +26,14 @@
 ## 1.1 Project Description
 
 ### What problem does your project solve?
-Many people struggle to decide what to eat, some repeat the same recipe, others have ingredients at home but don't know what to make with them and end up letting food expire. Planning is especially harder for people with allergies, dietary restrictions or macro goals, where they must find or modify recipes to suit their needs. Existing apps usually cover only one method(recipes, calorie counting, a shopping list), or provides premium services for an extra cost. Mealton is a cost friendly product that brings these together. The program uses what the user already has in their pantry, together with their preferences and dietary restrictions, to suggest recipes, plan for the week, schedule a prep day and build a shopping list, making deciding what to eat easier and reduces food waste.
+Many people struggle to decide what to eat, some repeat the same recipe, others have ingredients at home but don't know what to make with them and end up letting food expire. Planning is especially harder for people with allergies, dietary restrictions or macro goals, where they must find or modify recipes to suit their needs. Existing apps usually cover only one method (recipes, calorie counting, a shopping list), or provides premium services for an extra cost. Mealton is a cost friendly product that brings these together. The program uses what the user already has in their pantry, together with their preferences and dietary restrictions, to suggest recipes, plan for the week, schedule a prep day and build a shopping list, making deciding what to eat easier and reduces food waste.
 
 ### Who are the target users?
 Mealton is a general-purpose application. Typical users include:
 - people who keep making the same meals and want new ideas, or who find it hard to decide what to eat;
-- people who want to cook with ingredients they already have, and reduce food waste by using food before it expires;
+- people who want to cook with ingredients they already have to reduce food waste;
 - fitness-focused users who track calories and macros;
-- vegetarian and vegan users, users with food allergies, and users with other dietary restrictions;
+- users who are vegetarian, vegan, have food allergies, or any other dietary restrictions;
 - people who want help planning meals for a whole week.
 
 ### What can the agent do?
