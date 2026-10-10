@@ -26,7 +26,7 @@
 ## 1.1 Project Description
 
 ### What problem does your project solve?
-Many people struggle to decide what to eat. They repeat the same few meals, have ingredients at home but don't know what to make with them, and let food expire. Planning is harder still for people with allergies, dietary restrictions or macro goals, who must find or modify suitable recipes. Existing apps usually handle only one piece (recipes, or calorie counting, or a shopping list). Mealton brings these together: it uses what the user already has, together with their preferences and restrictions, to suggest recipes, plan the week, schedule a prep day and build the shopping list, which makes deciding what to eat easier and reduces food waste.
+Many people struggle to decide what to eat, some repeat the same recipe, others have ingredients at home but don't know what to make with them and end up letting food expire. Planning is especially harder for people with allergies, dietary restrictions or macro goals, where they must find or modify recipes to suit their needs. Existing apps usually cover only one method(recipes, calorie counting, a shopping list), or provides premium services for an extra cost. Mealton is a cost friendly product that brings these together. The program uses what the user already has in their pantry, together with their preferences and dietary restrictions, to suggest recipes, plan for the week, schedule a prep day and build a shopping list, making deciding what to eat easier and reduces food waste.
 
 ### Who are the target users?
 Mealton is a general-purpose application. Typical users include:
