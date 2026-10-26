@@ -1,0 +1,24 @@
+# ===== Secrets: never commit these =====
+.env
+.env.*
+!.env.example
+config.local.json
+
+# ===== Build output =====
+target/
+
+# ===== Eclipse =====
+.classpath
+.project
+.settings/
+bin/
+
+# ===== Other IDEs / OS =====
+.idea/
+*.iml
+.vscode/
+.DS_Store
+Thumbs.db
+
+# ===== Logs =====
+*.log
