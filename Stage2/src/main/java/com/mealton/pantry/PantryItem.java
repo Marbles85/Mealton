@@ -1,4 +1,4 @@
-package com.mealton.repository;
+package com.mealton.pantry;
 
 import java.time.LocalDate;
 import java.time.temporal.ChronoUnit;

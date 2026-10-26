@@ -1,4 +1,4 @@
-package com.mealton.repository;
+package com.mealton.pantry;
 
 public enum Freshness {
 	NO_DATE, FRESH, USE_SOON, EXPIRED;

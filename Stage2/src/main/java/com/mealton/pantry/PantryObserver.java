@@ -1,4 +1,4 @@
-package com.mealton.repository;
+package com.mealton.pantry;
 
 public interface PantryObserver {
 
