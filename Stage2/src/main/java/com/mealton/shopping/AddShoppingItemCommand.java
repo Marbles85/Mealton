@@ -7,6 +7,7 @@ import com.mealton.command.Command;
 /**
  * Adds an item, or merges it into an identical unticked item. Can be undone.
  */
+
 public class AddShoppingItemCommand implements Command {
 
 	private final ShoppingList list;
