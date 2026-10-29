@@ -52,7 +52,7 @@ public class ShoppingItem {
 		return quantity;
 	}
 
-	public void addtQuantity(double delta) {
+	public void addQuantity(double delta) {
 		this.quantity += delta;
 	}
 
