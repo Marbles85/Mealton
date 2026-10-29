@@ -3,14 +3,15 @@ package com.mealton.llm;
 import java.util.List;
 
 /**
- * One message in a conversation with the LLM. USER: what the person said.
- * ASSISTANT: what the LLM said (it may ask for tools). TOOL: the result of a
- * tool, sent back to the LLM (toolCallId says which request it answers).
+ * One message in a conversation with the LLM. SYSTEM: standing instructions for
+ * the LLM (who it is, what it may do). USER: what the person said. ASSISTANT:
+ * what the LLM said (it may ask for tools). TOOL: the result of a tool, sent
+ * back to the LLM (toolCallId says which request it answers).
  */
 public record Message(Role role, String text, List<ToolCall> toolCalls, String toolCallId) {
 
 	public enum Role {
-		USER, ASSISTANT, TOOL
+		SYSTEM, USER, ASSISTANT, TOOL
 	}
 
 	public Message {
@@ -19,6 +20,10 @@ public record Message(Role role, String text, List<ToolCall> toolCalls, String t
 		}
 		text = text == null ? "" : text;
 		toolCalls = toolCalls == null ? List.of() : List.copyOf(toolCalls);
+	}
+
+	public static Message system(String text) {
+		return new Message(Role.SYSTEM, text, null, null);
 	}
 
 	public static Message user(String text) {
