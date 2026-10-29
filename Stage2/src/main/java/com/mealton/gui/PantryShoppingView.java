@@ -73,6 +73,9 @@ public class PantryShoppingView extends BorderPane implements PantryObserver {
 	private final TextField shopUnit = new TextField();
 	private final ComboBox<String> shopCategory = newCategoryBox();
 
+	private final Button undoButton = new Button("Undo");
+	private final Button redoButton = new Button("Redo");
+
 	private Timeline freshnessTimer;
 
 	public PantryShoppingView(MealtonFacade facade) {
@@ -177,7 +180,13 @@ public class PantryShoppingView extends BorderPane implements PantryObserver {
 
 		Button remove = new Button("Delete selected");
 		remove.setOnAction(e -> onSwipeDelete());
-		HBox buttons = new HBox(8, remove);
+		Button clear = new Button("Clear checked");
+		clear.setOnAction(e -> onClearChecked());
+		undoButton.setOnAction(e -> onUndo());
+		redoButton.setOnAction(e -> onRedo());
+		Region spacer = new Region();
+		HBox.setHgrow(spacer, Priority.ALWAYS);
+		HBox buttons = new HBox(8, remove, clear, spacer, undoButton, redoButton);
 
 		VBox box = new VBox(10, form, shoppingList, buttons);
 		VBox.setVgrow(shoppingList, Priority.ALWAYS);
@@ -342,7 +351,7 @@ public class PantryShoppingView extends BorderPane implements PantryObserver {
 				}
 				int n = facade.deleteShoppingItems(ids);
 				refreshShopping();
-				setStatus("Deleted " + n + " item(s).", false);
+				setStatus("Deleted " + n + " item(s). Click Undo to bring them back.", false);
 			}
 		} catch (IllegalArgumentException ex) {
 			setStatus(ex.getMessage(), true);
@@ -357,6 +366,26 @@ public class PantryShoppingView extends BorderPane implements PantryObserver {
 		} catch (IllegalArgumentException ex) {
 			setStatus(ex.getMessage(), true);
 		}
+	}
+
+	/** Deletes every ticked item as one undoable step. */
+	public void onClearChecked() {
+		int n = facade.clearChecked();
+		refreshShopping();
+		setStatus(n == 0 ? "No ticked items to clear."
+				: "Cleared " + n + " ticked item(s). Click Undo to bring them back.", false);
+	}
+
+	public void onUndo() {
+		boolean undone = facade.undo();
+		refreshShopping();
+		setStatus(undone ? "Undone." : "Nothing to undo.", false);
+	}
+
+	public void onRedo() {
+		boolean redone = facade.redo();
+		refreshShopping();
+		setStatus(redone ? "Redone." : "Nothing to redo.", false);
 	}
 
 	// ------------------------------------------------------------------
@@ -403,6 +432,8 @@ public class PantryShoppingView extends BorderPane implements PantryObserver {
 
 	private void refreshShopping() {
 		shoppingList.getItems().setAll(facade.getShoppingItems());
+		undoButton.setDisable(!facade.canUndo()); // grey out when there is nothing to undo
+		redoButton.setDisable(!facade.canRedo());
 	}
 
 	private static String categoryText(ComboBox<String> box) {
