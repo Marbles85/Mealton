@@ -11,6 +11,7 @@ import java.util.ArrayList;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
+import java.util.stream.Collectors;
 
 import com.mealton.agent.AgentReply;
 import com.mealton.facade.MealtonFacade;
@@ -18,6 +19,7 @@ import com.mealton.pantry.PantryItem;
 import com.mealton.pantry.PantryObserver;
 import com.mealton.recipe.Recipe;
 import com.mealton.recipe.RecipeIngredient;
+import com.mealton.recipe.RecipeMatch;
 import com.mealton.recipe.RecipeParser;
 import com.mealton.shopping.ShoppingItem;
 import com.mealton.util.Formats;
@@ -177,7 +179,8 @@ public final class CliApp implements PantryObserver {
 
 	private void recipe(List<String> a) {
 		if (a.isEmpty()) {
-			throw new IllegalArgumentException("Usage: recipe add|list|top|show|rate|scale|delete");
+			throw new IllegalArgumentException(
+					"Usage: recipe add|list|top|show|rate|scale|suggest|check|missing|delete");
 		}
 		switch (a.get(0).toLowerCase()) {
 		case "add" -> {
@@ -194,6 +197,24 @@ public final class CliApp implements PantryObserver {
 		case "list" -> printRecipes(facade.getRecipes(), "You have no saved recipes yet.");
 		case "top" -> printRecipes(facade.getTopRatedRecipes(), "No recipes have been rated yet.");
 		case "show" -> printRecipe(facade.getRecipe(oneId(a, "recipe show <id>")));
+		case "suggest" -> {
+			if (a.size() > 2) {
+				throw new IllegalArgumentException("Usage: recipe suggest [best|expiring]");
+			}
+			printMatches(facade.suggestRecipes(a.size() == 2 ? a.get(1) : "best"));
+		}
+		case "check" -> printMatch(facade.checkRecipe(oneId(a, "recipe check <id>")));
+		case "missing" -> {
+			long id = oneId(a, "recipe missing <id>");
+			String title = facade.getRecipe(id).getTitle();
+			List<RecipeIngredient> added = facade.addMissingToShoppingList(id);
+			if (added.isEmpty()) {
+				out.println("Nothing to add for '" + title + "': the pantry and shopping list already cover it.");
+			} else {
+				out.println("Added to the shopping list for '" + title + "':");
+				added.forEach(i -> out.println("  + " + i));
+			}
+		}
 		case "rate" -> {
 			if (a.size() != 3) {
 				throw new IllegalArgumentException("Usage: recipe rate <id> <stars 1-5>");
@@ -225,6 +246,31 @@ public final class CliApp implements PantryObserver {
 		for (Recipe r : recipes) {
 			out.println("  #" + r.getId() + " " + r + (r.isRated() ? "  " + r.getRating() + "/5" : "  not rated"));
 		}
+	}
+
+	private void printMatches(List<RecipeMatch> matches) {
+		if (matches.isEmpty()) {
+			out.println("You have no saved recipes to compare with the pantry. Add one with 'recipe add'.");
+		}
+		matches.forEach(this::printMatch);
+	}
+
+	private void printMatch(RecipeMatch m) {
+		int total = m.available().size() + m.missing().size();
+		out.println("#" + m.recipe().getId() + " " + m.recipe().getTitle() + ": "
+				+ (m.isCookable() ? "can be cooked now"
+						: m.available().size() + " of " + total + " ingredients available")
+				+ (m.expiringUsed() > 0 ? " (uses " + m.expiringUsed() + " ingredient(s) that will spoil soon)" : ""));
+		if (!m.available().isEmpty()) {
+			out.println("    have:    " + joinIngredients(m.available()));
+		}
+		if (!m.missing().isEmpty()) {
+			out.println("    missing: " + joinIngredients(m.missing()));
+		}
+	}
+
+	private static String joinIngredients(List<RecipeIngredient> ingredients) {
+		return ingredients.stream().map(RecipeIngredient::toString).collect(Collectors.joining(", "));
 	}
 
 	private void printRecipe(Recipe r) {
@@ -447,6 +493,9 @@ public final class CliApp implements PantryObserver {
 				  shop list | check <id...> | delete <id...> | clear-checked | undo | redo
 				  recipe add "<title>" <servings> "<ing1; ing2; ...>" ["<step1|step2>"]
 				  recipe list | top | show <id> | rate <id> <1-5> | scale <id> <servings> | delete <id>
+				  recipe suggest [best|expiring]   (rank your recipes against your pantry)
+				  recipe check <id>                (what you have and what is missing)
+				  recipe missing <id>              (put the missing ingredients on the shopping list)
 				  convert <amount> <from> <to>       (units: g kg oz lb ml l tsp tbsp cup)
 				  scale <amount> <from servings> <to servings>
 				  chat                 (talk to the AI assistant; 'back' to leave)
