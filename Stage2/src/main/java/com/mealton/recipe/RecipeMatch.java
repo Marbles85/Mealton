@@ -11,14 +11,27 @@ import java.util.List;
  *                     example 100 g more flour)
  * @param expiringUsed how many of the available ingredients are use-soon pantry
  *                     items
+ * @param warnings     conflicts with the user's profile, such as an allergy or
+ *                     diet (empty if none)
  */
-
 public record RecipeMatch(Recipe recipe, List<RecipeIngredient> available, List<RecipeIngredient> missing,
-		int expiringUsed) {
+		int expiringUsed, List<String> warnings) {
 
 	public RecipeMatch {
 		available = List.copyOf(available);
 		missing = List.copyOf(missing);
+		warnings = List.copyOf(warnings);
+	}
+
+	/** A match with no profile warnings. */
+	public RecipeMatch(Recipe recipe, List<RecipeIngredient> available, List<RecipeIngredient> missing,
+			int expiringUsed) {
+		this(recipe, available, missing, expiringUsed, List.of());
+	}
+
+	/** The same match with profile warnings attached. */
+	public RecipeMatch withWarnings(List<String> newWarnings) {
+		return new RecipeMatch(recipe, available, missing, expiringUsed, newWarnings);
 	}
 
 	/** True when nothing is missing, so the recipe can be cooked right now. */
