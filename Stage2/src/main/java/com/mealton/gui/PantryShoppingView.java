@@ -15,6 +15,7 @@ import com.mealton.util.Formats;
 import javafx.animation.Animation;
 import javafx.animation.KeyFrame;
 import javafx.animation.Timeline;
+import javafx.application.Platform;
 import javafx.collections.FXCollections;
 import javafx.geometry.Insets;
 import javafx.geometry.Pos;
@@ -42,11 +43,11 @@ import javafx.scene.text.Text;
 import javafx.util.Duration;
 
 /**
- * The Pantry / Shopping List page (features F06 and F12). A tab switcher lets
- * the user move between the pantry and the shopping list on one page. This
- * class only draws the UI and forwards user actions to MealtonFacade. It is a
- * PantryObserver, so it is told when the pantry changes or an item is about to
- * spoil.
+ * The Pantry / Shopping List page (Stage 1: PantryShoppingView, features F06
+ * and F12). A tab switcher lets the user move between the pantry and the
+ * shopping list on one page. This class only draws the UI and forwards user
+ * actions to {@link MealtonFacade}; it is a {@link PantryObserver}, so it is
+ * told when the pantry changes or an item is about to spoil.
  */
 public class PantryShoppingView extends BorderPane implements PantryObserver {
 	private final MealtonFacade facade;
@@ -75,7 +76,6 @@ public class PantryShoppingView extends BorderPane implements PantryObserver {
 
 	private final Button undoButton = new Button("Undo");
 	private final Button redoButton = new Button("Redo");
-
 	private Timeline freshnessTimer;
 
 	public PantryShoppingView(MealtonFacade facade) {
@@ -368,7 +368,6 @@ public class PantryShoppingView extends BorderPane implements PantryObserver {
 		}
 	}
 
-	/** Deletes every ticked item as one undoable step. */
 	public void onClearChecked() {
 		int n = facade.clearChecked();
 		refreshShopping();
@@ -400,16 +399,36 @@ public class PantryShoppingView extends BorderPane implements PantryObserver {
 	/** Called by the pantry after add / update / remove. */
 	@Override
 	public void onPantryChanged() {
+		// The AI agent changes the pantry on a background thread, but only the JavaFX
+		// thread
+		// may touch the screen. So hop over to it if needed.
+		if (Platform.isFxApplicationThread()) {
+			refreshPantry();
+			runFreshnessCheck();
+		} else {
+			Platform.runLater(() -> {
+				refreshPantry();
+				runFreshnessCheck();
+			});
+		}
+	}
+
+	/**
+	 * Reloads both lists from the facade. Used after the AI agent has changed
+	 * things.
+	 */
+	public void refreshAll() {
 		refreshPantry();
+		refreshShopping();
 		runFreshnessCheck();
 	}
 
 	// ------------------------------------------------------------------ helpers
 
 	/**
-	 * Asks the pantry to check freshness. The observer callbacks fill "alerts",
-	 * then the banner is updated. Runs on the JavaFX thread (no background thread
-	 * needed in the GUI).
+	 * Asks the pantry to check freshness; the observer callbacks fill
+	 * {@link #alerts}, then the banner is updated. Runs on the JavaFX thread (no
+	 * background thread needed in the GUI).
 	 */
 	public void runFreshnessCheck() {
 		alerts.clear();
@@ -432,7 +451,7 @@ public class PantryShoppingView extends BorderPane implements PantryObserver {
 
 	private void refreshShopping() {
 		shoppingList.getItems().setAll(facade.getShoppingItems());
-		undoButton.setDisable(!facade.canUndo()); // grey out when there is nothing to undo
+		undoButton.setDisable(!facade.canUndo());
 		redoButton.setDisable(!facade.canRedo());
 	}
 
