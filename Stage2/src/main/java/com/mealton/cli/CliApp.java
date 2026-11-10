@@ -12,6 +12,7 @@ import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
 
+import com.mealton.agent.AgentReply;
 import com.mealton.facade.MealtonFacade;
 import com.mealton.pantry.PantryItem;
 import com.mealton.pantry.PantryObserver;
@@ -19,12 +20,12 @@ import com.mealton.shopping.ShoppingItem;
 import com.mealton.util.Formats;
 
 /**
- * Command-line interface. It only talks to MealtonFacade (the same entry point
- * as the GUI), and it is a PantryObserver, so expiry alerts are printed as they
- * happen. Data lives in memory for now. Saving to a database comes later.
+ * Command-line interface. It only talks to {@link MealtonFacade} (same entry
+ * point as the GUI) and it is a {@link PantryObserver}, so expiry alerts are
+ * printed as they happen. Interactive for now: state lives in memory until
+ * persistence is added.
  */
 public final class CliApp implements PantryObserver {
-
 	private final MealtonFacade facade;
 	private final BufferedReader in;
 	private final PrintStream out;
@@ -36,7 +37,7 @@ public final class CliApp implements PantryObserver {
 		facade.attachPantryObserver(this);
 	}
 
-	/** Read-eval-print loop: read a line, run it, print the result, repeat. */
+	/** Read-eval-print loop. */
 	public void run() {
 		out.println("Mealton CLI. Type 'help' for commands, 'exit' to quit.");
 		try {
@@ -53,7 +54,7 @@ public final class CliApp implements PantryObserver {
 		}
 	}
 
-	/** Runs one command line. Returns false when the user asked to exit. */
+	/** Runs one command line. @return false when the user asked to exit */
 	public boolean execute(String line) {
 		List<String> t = tokenize(line);
 		if (t.isEmpty()) {
@@ -67,6 +68,7 @@ public final class CliApp implements PantryObserver {
 			}
 			case "pantry" -> pantry(t.subList(1, t.size()));
 			case "shop" -> shop(t.subList(1, t.size()));
+			case "chat" -> chat(line);
 			default -> out.println("Unknown command '" + t.get(0) + "'. Type 'help'.");
 			}
 		} catch (IllegalArgumentException | DateTimeException e) {
@@ -113,7 +115,7 @@ public final class CliApp implements PantryObserver {
 			if (facade.getExpiringItems().isEmpty()) {
 				out.println("Nothing is close to expiring.");
 			} else {
-				facade.checkFreshness(); // the observers (this CLI) print the alerts
+				facade.checkFreshness(); // observers (this CLI) print the alerts
 			}
 		}
 		case "remove" -> {
@@ -165,6 +167,48 @@ public final class CliApp implements PantryObserver {
 		}
 	}
 
+	// ---------------- AI chat (F14) ----------------
+
+	/**
+	 * "chat" alone starts a conversation (type 'back' to leave it). "chat
+	 * <message>" sends one message and returns to the normal prompt.
+	 */
+	private void chat(String line) {
+		if (!facade.hasAgent()) {
+			throw new IllegalArgumentException("The AI agent is not set up. Check LLM_PROVIDER in your .env file.");
+		}
+		String message = line.trim().substring(4).trim(); // everything after the word "chat"
+		if (!message.isEmpty()) {
+			ask(message);
+			return;
+		}
+		out.println("Chatting with Mealton. Type 'back' to return to the commands.");
+		try {
+			while (true) {
+				out.print("you> ");
+				out.flush();
+				String text = in.readLine();
+				if (text == null || text.trim().equalsIgnoreCase("back")) {
+					break;
+				}
+				if (!text.isBlank()) {
+					ask(text);
+				}
+			}
+		} catch (IOException e) {
+			out.println("Input error: " + e.getMessage());
+		}
+	}
+
+	private void ask(String message) {
+		out.println("(thinking...)");
+		AgentReply reply = facade.chat(message);
+		out.println("Mealton: " + reply.text());
+		if (!reply.toolsUsed().isEmpty()) {
+			out.println("  [tools used: " + String.join(", ", reply.toolsUsed()) + "]");
+		}
+	}
+
 	// ---------------- Observer callbacks ----------------
 
 	@Override
@@ -174,11 +218,10 @@ public final class CliApp implements PantryObserver {
 
 	@Override
 	public void onPantryChanged() {
-		// The CLI prints its own confirmation after each command, so nothing to do
-		// here.
+		// CLI prints its own confirmation after each command; nothing to do here.
 	}
 
-	// ---------------- formatting and parsing helpers ----------------
+	// ---------------- formatting / parsing helpers ----------------
 
 	private String describe(PantryItem i) {
 		return String.format("#%d %s %s%s [%s] %s", i.getId(), i.getName(), Formats.number(i.getQuantity()),
@@ -209,7 +252,7 @@ public final class CliApp implements PantryObserver {
 		return ids;
 	}
 
-	/** Splits a line into words. Double quotes keep words together. */
+	/** Splits a line into tokens; double quotes keep words together. */
 	static List<String> tokenize(String line) {
 		List<String> tokens = new ArrayList<>();
 		StringBuilder cur = new StringBuilder();
@@ -236,7 +279,7 @@ public final class CliApp implements PantryObserver {
 		return tokens;
 	}
 
-	/** Plain words plus --flag value pairs. */
+	/** Positional arguments plus --flag value pairs. */
 	private static final class Args {
 		final List<String> positional = new ArrayList<>();
 		final Map<String, String> flags = new HashMap<>();
@@ -265,6 +308,8 @@ public final class CliApp implements PantryObserver {
 				  pantry list | expiring | check | remove <id...>
 				  shop add <name> [qty] [unit] [--category c]
 				  shop list | check <id...> | delete <id...> | clear-checked | undo | redo
+				  chat                 (talk to the AI assistant; 'back' to leave)
+				  chat <message>       (send one message to the AI assistant)
 				  help | exit
 				Tip: use "double quotes" for names with spaces.""");
 	}
