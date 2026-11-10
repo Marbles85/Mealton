@@ -1,28 +1,37 @@
 package com.mealton.recipe;
 
 import java.util.ArrayList;
+import java.util.Comparator;
 import java.util.List;
 
 import com.mealton.pantry.PantryInventory;
+import com.mealton.profile.ProfileService;
 import com.mealton.shopping.ShoppingItem;
 import com.mealton.shopping.ShoppingService;
 
 /**
  * Puts the recipe book, the pantry and the shopping list together: "what can I
  * cook with what I have?" (F07) and "put what is missing on my shopping list"
- * (F08). The facade and the AI agent both use this class, so the logic lives in
- * one place.
+ * (F08). Recipes that clash with the user's profile (allergies, diet) get
+ * warnings and are listed last. The facade and the AI agent both use this
+ * class, so the logic lives in one place.
  */
 public class RecipeAdvisor {
 	private final RecipeBook book;
 	private final PantryInventory pantry;
 	private final ShoppingService shopping;
+	private final ProfileService profile;
 	private final RecipeMatcher matcher = new RecipeMatcher();
 
 	public RecipeAdvisor(RecipeBook book, PantryInventory pantry, ShoppingService shopping) {
+		this(book, pantry, shopping, new ProfileService());
+	}
+
+	public RecipeAdvisor(RecipeBook book, PantryInventory pantry, ShoppingService shopping, ProfileService profile) {
 		this.book = book;
 		this.pantry = pantry;
 		this.shopping = shopping;
+		this.profile = profile;
 	}
 
 	/**
@@ -32,12 +41,24 @@ public class RecipeAdvisor {
 	 *                 about to spoil first); blank means best
 	 */
 	public List<RecipeMatch> suggest(String priority) {
-		return matcher.match(book.getAll(), pantry.getItems(), pantry.today(), strategyFor(priority));
+		List<RecipeMatch> matches = new ArrayList<>();
+		for (RecipeMatch match : matcher.match(book.getAll(), pantry.getItems(), pantry.today(),
+				strategyFor(priority))) {
+			matches.add(withWarnings(match));
+		}
+		// recipes with warnings go last; the sort is stable, so the chosen ranking is
+		// kept inside each group
+		matches.sort(Comparator.comparing(m -> !m.warnings().isEmpty()));
+		return matches;
 	}
 
 	/** How one saved recipe fits the pantry right now. */
 	public RecipeMatch check(long recipeId) {
-		return matcher.matchOne(book.get(recipeId), pantry.getItems(), pantry.today());
+		return withWarnings(matcher.matchOne(book.get(recipeId), pantry.getItems(), pantry.today()));
+	}
+
+	private RecipeMatch withWarnings(RecipeMatch match) {
+		return match.withWarnings(ProfileCheck.conflicts(match.recipe(), profile.get()));
 	}
 
 	/**
