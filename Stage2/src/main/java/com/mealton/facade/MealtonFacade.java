@@ -10,6 +10,7 @@ import com.mealton.agent.AgentReply;
 import com.mealton.agent.MealtonAgent;
 import com.mealton.agent.ToolRegistry;
 import com.mealton.agent.tools.ConvertTool;
+import com.mealton.agent.tools.MealIdeasTool;
 import com.mealton.agent.tools.PantryTool;
 import com.mealton.agent.tools.RecipeTool;
 import com.mealton.agent.tools.ShoppingListTool;
@@ -19,7 +20,10 @@ import com.mealton.pantry.PantryInventory;
 import com.mealton.pantry.PantryItem;
 import com.mealton.pantry.PantryObserver;
 import com.mealton.recipe.Recipe;
+import com.mealton.recipe.RecipeAdvisor;
 import com.mealton.recipe.RecipeBook;
+import com.mealton.recipe.RecipeIngredient;
+import com.mealton.recipe.RecipeMatch;
 import com.mealton.repository.InMemoryPantryRepository;
 import com.mealton.shopping.ShoppingItem;
 import com.mealton.shopping.ShoppingService;
@@ -35,6 +39,7 @@ public class MealtonFacade {
 	private final ShoppingService shopping;
 	private final FreshnessScheduler scheduler;
 	private final RecipeBook recipes = new RecipeBook();
+	private final RecipeAdvisor advisor;
 	private MealtonAgent agent; // null until enableAgent() is called
 
 	public MealtonFacade() {
@@ -45,6 +50,7 @@ public class MealtonFacade {
 		this.pantry = new PantryInventory(new InMemoryPantryRepository(), clock);
 		this.shopping = new ShoppingService();
 		this.scheduler = new FreshnessScheduler(pantry);
+		this.advisor = new RecipeAdvisor(recipes, pantry, shopping);
 	}
 
 	// ---------------- Pantry (F06) ----------------
@@ -156,6 +162,29 @@ public class MealtonFacade {
 		recipes.delete(id);
 	}
 
+	// ---------------- Recipe ideas from the pantry (F07) and missing ingredients
+	// (F08) ----------------
+
+	/**
+	 * Saved recipes ranked against the pantry. priority: "best" (default) or
+	 * "expiring".
+	 */
+	public List<RecipeMatch> suggestRecipes(String priority) {
+		return advisor.suggest(priority);
+	}
+
+	/** How one saved recipe fits the pantry right now. */
+	public RecipeMatch checkRecipe(long id) {
+		return advisor.check(id);
+	}
+
+	/**
+	 * Puts what a recipe is missing on the shopping list; returns what was added.
+	 */
+	public List<RecipeIngredient> addMissingToShoppingList(long recipeId) {
+		return advisor.addMissingToShoppingList(recipeId);
+	}
+
 	// ---------------- Unit conversion and scaling (F10) ----------------
 
 	/** Converts an amount between two units of the same kind, e.g. 2 cup to ml. */
@@ -171,8 +200,9 @@ public class MealtonFacade {
 	// ---------------- AI chat agent (F14) ----------------
 
 	/**
-	 * Creates the chat agent with the given LLM. It can use the pantry, shopping
-	 * list, convert and recipe tools.
+	 * Creates the chat agent with the given LLM. Its tools: pantry, shopping list,
+	 * unit conversion, saved recipes, and meal ideas (recipes matched against the
+	 * pantry).
 	 */
 	public void enableAgent(LLMClient llm) {
 		ToolRegistry registry = new ToolRegistry();
@@ -180,6 +210,7 @@ public class MealtonFacade {
 		registry.register(new ShoppingListTool(shopping));
 		registry.register(new ConvertTool());
 		registry.register(new RecipeTool(recipes));
+		registry.register(new MealIdeasTool(advisor));
 		this.agent = new MealtonAgent(llm, registry, new AgentMemory());
 	}
 
