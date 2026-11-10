@@ -12,6 +12,7 @@ import java.util.List;
  * @param expiringUsed how many of the available ingredients are use-soon pantry
  *                     items
  */
+
 public record RecipeMatch(Recipe recipe, List<RecipeIngredient> available, List<RecipeIngredient> missing,
 		int expiringUsed) {
 
