@@ -69,6 +69,8 @@ public final class CliApp implements PantryObserver {
 			case "pantry" -> pantry(t.subList(1, t.size()));
 			case "shop" -> shop(t.subList(1, t.size()));
 			case "chat" -> chat(line);
+			case "convert" -> convert(t.subList(1, t.size()));
+			case "scale" -> scale(t.subList(1, t.size()));
 			default -> out.println("Unknown command '" + t.get(0) + "'. Type 'help'.");
 			}
 		} catch (IllegalArgumentException | DateTimeException e) {
@@ -164,6 +166,39 @@ public final class CliApp implements PantryObserver {
 		case "undo" -> out.println(facade.undo() ? "Undone." : "Nothing to undo.");
 		case "redo" -> out.println(facade.redo() ? "Redone." : "Nothing to redo.");
 		default -> throw new IllegalArgumentException("Unknown shop command '" + a.get(0) + "'.");
+		}
+	}
+
+	// ---------------- unit conversion and scaling (F10) ----------------
+
+	private void convert(List<String> a) {
+		if (a.size() != 3) {
+			throw new IllegalArgumentException("Usage: convert <amount> <from unit> <to unit>   e.g. convert 2 cup ml");
+		}
+		double amount = Formats.parseQuantity(a.get(0));
+		double result = facade.convertUnits(amount, a.get(1), a.get(2));
+		out.println(Formats.number(amount) + " " + a.get(1) + " = " + Formats.number(Math.round(result * 100.0) / 100.0)
+				+ " " + a.get(2));
+	}
+
+	private void scale(List<String> a) {
+		if (a.size() != 3) {
+			throw new IllegalArgumentException(
+					"Usage: scale <amount> <from servings> <to servings>   e.g. scale 200 2 5");
+		}
+		double amount = Formats.parseQuantity(a.get(0));
+		int from = parseServings(a.get(1));
+		int to = parseServings(a.get(2));
+		double result = facade.scaleAmount(amount, from, to);
+		out.println(Formats.number(amount) + " for " + from + " servings becomes "
+				+ Formats.number(Math.round(result * 100.0) / 100.0) + " for " + to + " servings");
+	}
+
+	private static int parseServings(String text) {
+		try {
+			return Integer.parseInt(text);
+		} catch (NumberFormatException e) {
+			throw new IllegalArgumentException("Servings must be a whole number, got '" + text + "'.");
 		}
 	}
 
@@ -308,6 +343,8 @@ public final class CliApp implements PantryObserver {
 				  pantry list | expiring | check | remove <id...>
 				  shop add <name> [qty] [unit] [--category c]
 				  shop list | check <id...> | delete <id...> | clear-checked | undo | redo
+				  convert <amount> <from> <to>       (units: g kg oz lb ml l tsp tbsp cup)
+				  scale <amount> <from servings> <to servings>
 				  chat                 (talk to the AI assistant; 'back' to leave)
 				  chat <message>       (send one message to the AI assistant)
 				  help | exit
