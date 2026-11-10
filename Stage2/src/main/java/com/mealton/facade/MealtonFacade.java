@@ -12,6 +12,7 @@ import com.mealton.agent.ToolRegistry;
 import com.mealton.agent.tools.ConvertTool;
 import com.mealton.agent.tools.MealIdeasTool;
 import com.mealton.agent.tools.PantryTool;
+import com.mealton.agent.tools.ProfileTool;
 import com.mealton.agent.tools.RecipeTool;
 import com.mealton.agent.tools.ShoppingListTool;
 import com.mealton.llm.LLMClient;
@@ -19,6 +20,8 @@ import com.mealton.pantry.FreshnessScheduler;
 import com.mealton.pantry.PantryInventory;
 import com.mealton.pantry.PantryItem;
 import com.mealton.pantry.PantryObserver;
+import com.mealton.profile.ProfileService;
+import com.mealton.profile.UserProfile;
 import com.mealton.recipe.Recipe;
 import com.mealton.recipe.RecipeAdvisor;
 import com.mealton.recipe.RecipeBook;
@@ -40,6 +43,8 @@ public class MealtonFacade {
 	private final FreshnessScheduler scheduler;
 	private final RecipeBook recipes = new RecipeBook();
 	private final RecipeAdvisor advisor;
+	private final ProfileService profile = new ProfileService();
+	private final AgentMemory memory = new AgentMemory();
 	private MealtonAgent agent; // null until enableAgent() is called
 
 	public MealtonFacade() {
@@ -50,7 +55,25 @@ public class MealtonFacade {
 		this.pantry = new PantryInventory(new InMemoryPantryRepository(), clock);
 		this.shopping = new ShoppingService();
 		this.scheduler = new FreshnessScheduler(pantry);
-		this.advisor = new RecipeAdvisor(recipes, pantry, shopping);
+		this.advisor = new RecipeAdvisor(recipes, pantry, shopping, profile);
+		// whenever the profile changes, the agent's memory learns it too (so Claude
+		// always knows the diet)
+		profile.addListener(this::syncProfileToMemory);
+		syncProfileToMemory(profile.get());
+	}
+
+	/**
+	 * Copies the profile into the agent's remembered facts; blank values are
+	 * forgotten.
+	 */
+	private void syncProfileToMemory(UserProfile p) {
+		memory.setPreference("name", p.name());
+		memory.setPreference("diet", p.diet().label());
+		memory.setPreference("allergies", String.join(", ", p.allergies()));
+		memory.setPreference("calorie goal", p.calorieGoal() > 0 ? p.calorieGoal() + " kcal per day" : "");
+		memory.setPreference("macro goals", p.proteinGoal() > 0 || p.carbsGoal() > 0 || p.fatGoal() > 0
+				? "protein " + p.proteinGoal() + " g, carbs " + p.carbsGoal() + " g, fat " + p.fatGoal() + " g per day"
+				: "");
 	}
 
 	// ---------------- Pantry (F06) ----------------
@@ -185,6 +208,48 @@ public class MealtonFacade {
 		return advisor.addMissingToShoppingList(recipeId);
 	}
 
+	// ---------------- Profile (F01) ----------------
+
+	public UserProfile getProfile() {
+		return profile.get();
+	}
+
+	public UserProfile setProfileName(String name) {
+		return profile.setName(name);
+	}
+
+	public UserProfile setDiet(String diet) {
+		return profile.setDiet(diet);
+	}
+
+	public UserProfile addAllergy(String allergy) {
+		return profile.addAllergy(allergy);
+	}
+
+	public UserProfile removeAllergy(String allergy) {
+		return profile.removeAllergy(allergy);
+	}
+
+	public UserProfile setCalorieGoal(int calories) {
+		return profile.setCalorieGoal(calories);
+	}
+
+	public UserProfile setMacroGoals(int protein, int carbs, int fat) {
+		return profile.setMacroGoals(protein, carbs, fat);
+	}
+
+	public UserProfile resetProfile() {
+		return profile.reset();
+	}
+
+	/**
+	 * Lets the GUI hear about profile changes (for example when the AI changes the
+	 * profile in chat).
+	 */
+	public void addProfileListener(java.util.function.Consumer<UserProfile> listener) {
+		profile.addListener(listener);
+	}
+
 	// ---------------- Unit conversion and scaling (F10) ----------------
 
 	/** Converts an amount between two units of the same kind, e.g. 2 cup to ml. */
@@ -200,9 +265,8 @@ public class MealtonFacade {
 	// ---------------- AI chat agent (F14) ----------------
 
 	/**
-	 * Creates the chat agent with the given LLM. Its tools: pantry, shopping list,
-	 * unit conversion, saved recipes, and meal ideas (recipes matched against the
-	 * pantry).
+	 * Creates the chat agent with the given LLM. It can use the pantry, shopping
+	 * list, recipe and profile tools.
 	 */
 	public void enableAgent(LLMClient llm) {
 		ToolRegistry registry = new ToolRegistry();
@@ -211,7 +275,8 @@ public class MealtonFacade {
 		registry.register(new ConvertTool());
 		registry.register(new RecipeTool(recipes));
 		registry.register(new MealIdeasTool(advisor));
-		this.agent = new MealtonAgent(llm, registry, new AgentMemory());
+		registry.register(new ProfileTool(profile));
+		this.agent = new MealtonAgent(llm, registry, memory);
 	}
 
 	public boolean hasAgent() {
