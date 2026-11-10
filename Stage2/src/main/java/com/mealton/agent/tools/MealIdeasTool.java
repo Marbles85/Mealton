@@ -36,11 +36,11 @@ public class MealIdeasTool implements Tool {
 		params.put("priority", "For suggest: 'best' (closest to cookable first, the default) "
 				+ "or 'expiring' (use up food that is about to spoil first).");
 		params.put("id", "For check and add_missing: the id of a saved recipe (see the recipes tool, action 'list').");
-		return new ToolSpec(name(),
-				"Compares the user's saved recipes with what is in their pantry right now. "
-						+ "'suggest' ranks all saved recipes and shows what is available and missing for each, "
-						+ "'check' does the same for one recipe, and 'add_missing' puts the missing ingredients "
-						+ "of one recipe on the shopping list. Expired food does not count as available.",
+		return new ToolSpec(name(), "Compares the user's saved recipes with what is in their pantry right now. "
+				+ "'suggest' ranks all saved recipes and shows what is available and missing for each, "
+				+ "'check' does the same for one recipe, and 'add_missing' puts the missing ingredients "
+				+ "of one recipe on the shopping list. Expired food does not count as available. "
+				+ "Recipes that clash with the user's allergies or diet carry a WARNING; mention it to the user.",
 				params);
 	}
 
@@ -102,6 +102,9 @@ public class MealIdeasTool implements Tool {
 		}
 		if (!m.missing().isEmpty()) {
 			sb.append("\n    missing: ").append(join(m.missing()));
+		}
+		for (String warning : m.warnings()) {
+			sb.append("\n    WARNING (conflicts with the user's profile): ").append(warning);
 		}
 		return sb.toString();
 	}
