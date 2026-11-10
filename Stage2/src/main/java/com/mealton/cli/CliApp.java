@@ -16,6 +16,9 @@ import com.mealton.agent.AgentReply;
 import com.mealton.facade.MealtonFacade;
 import com.mealton.pantry.PantryItem;
 import com.mealton.pantry.PantryObserver;
+import com.mealton.recipe.Recipe;
+import com.mealton.recipe.RecipeIngredient;
+import com.mealton.recipe.RecipeParser;
 import com.mealton.shopping.ShoppingItem;
 import com.mealton.util.Formats;
 
@@ -68,6 +71,7 @@ public final class CliApp implements PantryObserver {
 			}
 			case "pantry" -> pantry(t.subList(1, t.size()));
 			case "shop" -> shop(t.subList(1, t.size()));
+			case "recipe" -> recipe(t.subList(1, t.size()));
 			case "chat" -> chat(line);
 			case "convert" -> convert(t.subList(1, t.size()));
 			case "scale" -> scale(t.subList(1, t.size()));
@@ -166,6 +170,99 @@ public final class CliApp implements PantryObserver {
 		case "undo" -> out.println(facade.undo() ? "Undone." : "Nothing to undo.");
 		case "redo" -> out.println(facade.redo() ? "Redone." : "Nothing to redo.");
 		default -> throw new IllegalArgumentException("Unknown shop command '" + a.get(0) + "'.");
+		}
+	}
+
+	// ---------------- recipes (F13) ----------------
+
+	private void recipe(List<String> a) {
+		if (a.isEmpty()) {
+			throw new IllegalArgumentException("Usage: recipe add|list|top|show|rate|scale|delete");
+		}
+		switch (a.get(0).toLowerCase()) {
+		case "add" -> {
+			if (a.size() < 4 || a.size() > 5) {
+				throw new IllegalArgumentException(
+						"Usage: recipe add \"<title>\" <servings> \"<ingredients>\" [\"<steps>\"]\n"
+								+ "  e.g. recipe add \"Pancakes\" 2 \"200 g flour; 2 eggs; 0.3 l milk\" \"Mix|Fry\"");
+			}
+			Recipe recipe = new Recipe(a.get(1), parseWhole(a.get(2), "Servings"),
+					RecipeParser.parseIngredients(a.get(3)), RecipeParser.parseSteps(a.size() == 5 ? a.get(4) : ""));
+			Recipe saved = facade.saveRecipe(recipe);
+			out.println("Saved recipe #" + saved.getId() + ": " + saved);
+		}
+		case "list" -> printRecipes(facade.getRecipes(), "You have no saved recipes yet.");
+		case "top" -> printRecipes(facade.getTopRatedRecipes(), "No recipes have been rated yet.");
+		case "show" -> printRecipe(facade.getRecipe(oneId(a, "recipe show <id>")));
+		case "rate" -> {
+			if (a.size() != 3) {
+				throw new IllegalArgumentException("Usage: recipe rate <id> <stars 1-5>");
+			}
+			Recipe rated = facade.rateRecipe(parseId(a.get(1)), parseWhole(a.get(2), "Stars"));
+			out.println("Rated '" + rated.getTitle() + "' " + rated.getRating() + "/5.");
+		}
+		case "scale" -> {
+			if (a.size() != 3) {
+				throw new IllegalArgumentException("Usage: recipe scale <id> <servings>");
+			}
+			printRecipe(facade.scaledRecipe(parseId(a.get(1)), parseWhole(a.get(2), "Servings")));
+			out.println("(Scaled copy. The saved recipe is unchanged.)");
+		}
+		case "delete" -> {
+			long id = oneId(a, "recipe delete <id>");
+			String title = facade.getRecipe(id).getTitle();
+			facade.deleteRecipe(id);
+			out.println("Deleted recipe '" + title + "'.");
+		}
+		default -> throw new IllegalArgumentException("Unknown recipe command '" + a.get(0) + "'.");
+		}
+	}
+
+	private void printRecipes(List<Recipe> recipes, String emptyMessage) {
+		if (recipes.isEmpty()) {
+			out.println(emptyMessage);
+		}
+		for (Recipe r : recipes) {
+			out.println("  #" + r.getId() + " " + r + (r.isRated() ? "  " + r.getRating() + "/5" : "  not rated"));
+		}
+	}
+
+	private void printRecipe(Recipe r) {
+		out.println(r.getTitle() + " (" + r.getServings() + " servings, "
+				+ (r.isRated() ? r.getRating() + "/5 stars" : "not rated") + ")");
+		out.println("Ingredients:");
+		for (RecipeIngredient ingredient : r.getIngredients()) {
+			out.println("  - " + ingredient);
+		}
+		if (!r.getSteps().isEmpty()) {
+			out.println("Steps:");
+			int number = 1;
+			for (String step : r.getSteps()) {
+				out.println("  " + number++ + ". " + step);
+			}
+		}
+	}
+
+	private static long oneId(List<String> a, String usage) {
+		if (a.size() != 2) {
+			throw new IllegalArgumentException("Usage: " + usage);
+		}
+		return parseId(a.get(1));
+	}
+
+	private static long parseId(String text) {
+		try {
+			return Long.parseLong(text.replace("#", ""));
+		} catch (NumberFormatException e) {
+			throw new IllegalArgumentException("'" + text + "' is not a valid id.");
+		}
+	}
+
+	private static int parseWhole(String text, String what) {
+		try {
+			return Integer.parseInt(text);
+		} catch (NumberFormatException e) {
+			throw new IllegalArgumentException(what + " must be a whole number, got '" + text + "'.");
 		}
 	}
 
@@ -348,6 +445,8 @@ public final class CliApp implements PantryObserver {
 				  pantry list | expiring | check | remove <id...>
 				  shop add <name> [qty] [unit] [--category c]
 				  shop list | check <id...> | delete <id...> | clear-checked | undo | redo
+				  recipe add "<title>" <servings> "<ing1; ing2; ...>" ["<step1|step2>"]
+				  recipe list | top | show <id> | rate <id> <1-5> | scale <id> <servings> | delete <id>
 				  convert <amount> <from> <to>       (units: g kg oz lb ml l tsp tbsp cup)
 				  scale <amount> <from servings> <to servings>
 				  chat                 (talk to the AI assistant; 'back' to leave)
