@@ -18,23 +18,24 @@ import javafx.scene.layout.Priority;
 import javafx.scene.layout.Region;
 
 /**
- * The main window: a header with page navigation, and the current page in the
- * centre. Pages that are not built yet appear as disabled buttons.
+ * Main window: a header with page navigation and the current page in the centre
+ * (Stage 1: MainWindow). Pages that are not built yet appear disabled.
  */
 public class MainWindow extends BorderPane {
-
 	public static final String PANTRY_PAGE = "Pantry & List";
+	public static final String CHAT_PAGE = "Mealton Chat";
 
-	// LinkedHashMap keeps the pages in the order we added them
 	private final Map<String, Node> pages = new LinkedHashMap<>();
 
 	public MainWindow(MealtonFacade facade) {
-		pages.put(PANTRY_PAGE, new PantryShoppingView(facade));
+		PantryShoppingView pantryView = new PantryShoppingView(facade);
+		pages.put(PANTRY_PAGE, pantryView);
+		// after the AI agent uses a tool, the pantry/shopping page reloads what changed
+		pages.put(CHAT_PAGE, new ChatView(facade, pantryView::refreshAll));
 
 		Label title = new Label("Mealton");
 		title.setStyle("-fx-font-size: 22px; -fx-font-weight: bold;");
 
-		// One button per page that exists
 		HBox nav = new HBox(8);
 		nav.setAlignment(Pos.CENTER_LEFT);
 		for (String name : pages.keySet()) {
@@ -42,9 +43,7 @@ public class MainWindow extends BorderPane {
 			b.setOnAction(e -> showPage(name));
 			nav.getChildren().add(b);
 		}
-
-		// Greyed-out buttons for pages we will build later
-		for (String planned : List.of("Calendar", "Recipes", "Profile", "Mealton Chat")) {
+		for (String planned : List.of("Calendar", "Recipes", "Profile")) {
 			Button b = new Button(planned);
 			b.setDisable(true);
 			b.setTooltip(new Tooltip("Coming soon"));
