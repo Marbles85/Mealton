@@ -74,6 +74,7 @@ public final class CliApp implements PantryObserver {
 			case "pantry" -> pantry(t.subList(1, t.size()));
 			case "shop" -> shop(t.subList(1, t.size()));
 			case "recipe" -> recipe(t.subList(1, t.size()));
+			case "profile" -> profile(t.subList(1, t.size()));
 			case "chat" -> chat(line);
 			case "convert" -> convert(t.subList(1, t.size()));
 			case "scale" -> scale(t.subList(1, t.size()));
@@ -267,6 +268,9 @@ public final class CliApp implements PantryObserver {
 		if (!m.missing().isEmpty()) {
 			out.println("    missing: " + joinIngredients(m.missing()));
 		}
+		for (String warning : m.warnings()) {
+			out.println("    WARNING: " + warning);
+		}
 	}
 
 	private static String joinIngredients(List<RecipeIngredient> ingredients) {
@@ -309,6 +313,55 @@ public final class CliApp implements PantryObserver {
 			return Integer.parseInt(text);
 		} catch (NumberFormatException e) {
 			throw new IllegalArgumentException(what + " must be a whole number, got '" + text + "'.");
+		}
+	}
+
+	// ---------------- profile (F01) ----------------
+
+	private void profile(List<String> a) {
+		if (a.isEmpty() || a.get(0).equalsIgnoreCase("show")) {
+			out.println(facade.getProfile().summary());
+			return;
+		}
+		switch (a.get(0).toLowerCase()) {
+		case "name" -> {
+			requireSize(a, 2, "profile name <name>");
+			out.println("Profile updated. " + facade.setProfileName(a.get(1)).summary());
+		}
+		case "diet" -> {
+			requireSize(a, 2, "profile diet <anything|vegetarian|vegan|pescatarian|gluten-free|keto>");
+			out.println("Profile updated. " + facade.setDiet(a.get(1)).summary());
+		}
+		case "allergy" -> {
+			if (a.size() != 3) {
+				throw new IllegalArgumentException("Usage: profile allergy add|remove <food>");
+			}
+			switch (a.get(1).toLowerCase()) {
+			case "add" -> out.println("Profile updated. " + facade.addAllergy(a.get(2)).summary());
+			case "remove" -> out.println("Profile updated. " + facade.removeAllergy(a.get(2)).summary());
+			default -> throw new IllegalArgumentException("Usage: profile allergy add|remove <food>");
+			}
+		}
+		case "calories" -> {
+			requireSize(a, 2, "profile calories <kcal per day, or 0 for none>");
+			out.println("Profile updated. " + facade.setCalorieGoal(parseWhole(a.get(1), "Calories")).summary());
+		}
+		case "macros" -> {
+			requireSize(a, 4, "profile macros <protein g> <carbs g> <fat g>");
+			out.println("Profile updated. " + facade.setMacroGoals(parseWhole(a.get(1), "Protein"),
+					parseWhole(a.get(2), "Carbs"), parseWhole(a.get(3), "Fat")).summary());
+		}
+		case "reset" -> {
+			facade.resetProfile();
+			out.println("Profile cleared.");
+		}
+		default -> throw new IllegalArgumentException("Unknown profile command '" + a.get(0) + "'. Type 'help'.");
+		}
+	}
+
+	private static void requireSize(List<String> a, int size, String usage) {
+		if (a.size() != size) {
+			throw new IllegalArgumentException("Usage: " + usage);
 		}
 	}
 
@@ -496,6 +549,8 @@ public final class CliApp implements PantryObserver {
 				  recipe suggest [best|expiring]   (rank your recipes against your pantry)
 				  recipe check <id>                (what you have and what is missing)
 				  recipe missing <id>              (put the missing ingredients on the shopping list)
+				  profile [show] | name <name> | diet <diet> | calories <kcal> | macros <p> <c> <f> | reset
+				  profile allergy add|remove <food>   (recipe suggestions then warn about conflicts)
 				  convert <amount> <from> <to>       (units: g kg oz lb ml l tsp tbsp cup)
 				  scale <amount> <from servings> <to servings>
 				  chat                 (talk to the AI assistant; 'back' to leave)
