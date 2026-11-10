@@ -11,12 +11,15 @@ import com.mealton.agent.MealtonAgent;
 import com.mealton.agent.ToolRegistry;
 import com.mealton.agent.tools.ConvertTool;
 import com.mealton.agent.tools.PantryTool;
+import com.mealton.agent.tools.RecipeTool;
 import com.mealton.agent.tools.ShoppingListTool;
 import com.mealton.llm.LLMClient;
 import com.mealton.pantry.FreshnessScheduler;
 import com.mealton.pantry.PantryInventory;
 import com.mealton.pantry.PantryItem;
 import com.mealton.pantry.PantryObserver;
+import com.mealton.recipe.Recipe;
+import com.mealton.recipe.RecipeBook;
 import com.mealton.repository.InMemoryPantryRepository;
 import com.mealton.shopping.ShoppingItem;
 import com.mealton.shopping.ShoppingService;
@@ -31,6 +34,7 @@ public class MealtonFacade {
 	private final PantryInventory pantry;
 	private final ShoppingService shopping;
 	private final FreshnessScheduler scheduler;
+	private final RecipeBook recipes = new RecipeBook();
 	private MealtonAgent agent; // null until enableAgent() is called
 
 	public MealtonFacade() {
@@ -118,6 +122,40 @@ public class MealtonFacade {
 		return shopping.getItems();
 	}
 
+	// ---------------- Recipes: save, rate, My Recipes (F13) ----------------
+
+	public Recipe saveRecipe(Recipe recipe) {
+		return recipes.save(recipe);
+	}
+
+	public Recipe rateRecipe(long id, int stars) {
+		return recipes.rate(id, stars);
+	}
+
+	public Recipe getRecipe(long id) {
+		return recipes.get(id);
+	}
+
+	public List<Recipe> getRecipes() {
+		return recipes.getAll();
+	}
+
+	public List<Recipe> getTopRatedRecipes() {
+		return recipes.getTopRated();
+	}
+
+	/**
+	 * A copy of a saved recipe for another number of servings; the saved one is
+	 * unchanged.
+	 */
+	public Recipe scaledRecipe(long id, int servings) {
+		return recipes.scaled(id, servings);
+	}
+
+	public void deleteRecipe(long id) {
+		recipes.delete(id);
+	}
+
 	// ---------------- Unit conversion and scaling (F10) ----------------
 
 	/** Converts an amount between two units of the same kind, e.g. 2 cup to ml. */
@@ -134,13 +172,14 @@ public class MealtonFacade {
 
 	/**
 	 * Creates the chat agent with the given LLM. It can use the pantry, shopping
-	 * list and convert tools.
+	 * list, convert and recipe tools.
 	 */
 	public void enableAgent(LLMClient llm) {
 		ToolRegistry registry = new ToolRegistry();
 		registry.register(new PantryTool(pantry));
 		registry.register(new ShoppingListTool(shopping));
 		registry.register(new ConvertTool());
+		registry.register(new RecipeTool(recipes));
 		this.agent = new MealtonAgent(llm, registry, new AgentMemory());
 	}
 
