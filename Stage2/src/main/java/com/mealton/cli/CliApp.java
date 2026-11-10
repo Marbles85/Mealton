@@ -171,7 +171,12 @@ public final class CliApp implements PantryObserver {
 
 	// ---------------- unit conversion and scaling (F10) ----------------
 
-	private void convert(List<String> a) {
+	private void convert(List<String> args) {
+		// accept the natural form "convert 1 cup to ml" as well as "convert 1 cup ml"
+		List<String> a = new ArrayList<>(args);
+		if (a.size() == 4 && (a.get(2).equalsIgnoreCase("to") || a.get(2).equalsIgnoreCase("in"))) {
+			a.remove(2);
+		}
 		if (a.size() != 3) {
 			throw new IllegalArgumentException("Usage: convert <amount> <from unit> <to unit>   e.g. convert 2 cup ml");
 		}
