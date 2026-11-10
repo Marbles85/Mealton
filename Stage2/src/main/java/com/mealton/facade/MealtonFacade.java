@@ -5,6 +5,13 @@ import java.time.LocalDate;
 import java.util.Collection;
 import java.util.List;
 
+import com.mealton.agent.AgentMemory;
+import com.mealton.agent.AgentReply;
+import com.mealton.agent.MealtonAgent;
+import com.mealton.agent.ToolRegistry;
+import com.mealton.agent.tools.PantryTool;
+import com.mealton.agent.tools.ShoppingListTool;
+import com.mealton.llm.LLMClient;
 import com.mealton.pantry.FreshnessScheduler;
 import com.mealton.pantry.PantryInventory;
 import com.mealton.pantry.PantryItem;
@@ -14,34 +21,32 @@ import com.mealton.shopping.ShoppingItem;
 import com.mealton.shopping.ShoppingService;
 
 /**
- * Facade pattern and MVC controller: the single entry point used by BOTH the
- * GUI and the CLI. More services (plans, recipes, the agent) will be added here
- * as we build them.
+ * Facade pattern + MVC controller: the single entry point used by BOTH the GUI
+ * and the CLI (Stage 1: MealtonFacade). More services (plans, recipes,
+ * agent...) will be added here.
  */
 public class MealtonFacade {
-
 	private final PantryInventory pantry;
 	private final ShoppingService shopping;
 	private final FreshnessScheduler scheduler;
+	private MealtonAgent agent; // null until enableAgent() is called
 
 	public MealtonFacade() {
 		this(Clock.systemDefaultZone());
 	}
 
-	/** The clock can be replaced so tests can use a fixed "today". */
 	public MealtonFacade(Clock clock) {
 		this.pantry = new PantryInventory(new InMemoryPantryRepository(), clock);
 		this.shopping = new ShoppingService();
 		this.scheduler = new FreshnessScheduler(pantry);
 	}
 
-	// ---------------- Pantry (feature F06) ----------------
+	// ---------------- Pantry (F06) ----------------
 
 	public PantryItem addPantryItem(PantryItem item) {
 		return pantry.addItem(item);
 	}
 
-	/** Removes the items with these ids. Returns how many were removed. */
 	public int removePantryItems(Collection<Long> ids) {
 		return pantry.removeItems(ids).size();
 	}
@@ -54,7 +59,9 @@ public class MealtonFacade {
 		return pantry.getExpiringItems();
 	}
 
-	/** Runs a freshness check now. Observers are told about each expiring item. */
+	/**
+	 * Runs a freshness check now; observers are notified about each expiring item.
+	 */
 	public void checkFreshness() {
 		scheduler.tick();
 	}
@@ -71,7 +78,7 @@ public class MealtonFacade {
 		return pantry.today();
 	}
 
-	// ---------------- Shopping list (feature F12) ----------------
+	// ---------------- Shopping list (F12) ----------------
 
 	public ShoppingItem addShoppingItem(ShoppingItem item) {
 		return shopping.addItem(item);
@@ -107,5 +114,33 @@ public class MealtonFacade {
 
 	public List<ShoppingItem> getShoppingItems() {
 		return shopping.getItems();
+	}
+
+	// ---------------- AI chat agent (F14) ----------------
+
+	/**
+	 * Creates the chat agent with the given LLM. It can use the pantry and shopping
+	 * list tools.
+	 */
+	public void enableAgent(LLMClient llm) {
+		ToolRegistry registry = new ToolRegistry();
+		registry.register(new PantryTool(pantry));
+		registry.register(new ShoppingListTool(shopping));
+		this.agent = new MealtonAgent(llm, registry, new AgentMemory());
+	}
+
+	public boolean hasAgent() {
+		return agent != null;
+	}
+
+	/**
+	 * Sends one message to the agent and returns its reply (and which tools it
+	 * used).
+	 */
+	public AgentReply chat(String message) {
+		if (agent == null) {
+			throw new IllegalStateException("The AI agent is not set up. Check LLM_PROVIDER in your .env file.");
+		}
+		return agent.run(message);
 	}
 }
