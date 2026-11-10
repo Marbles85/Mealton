@@ -9,6 +9,7 @@ import com.mealton.agent.AgentMemory;
 import com.mealton.agent.AgentReply;
 import com.mealton.agent.MealtonAgent;
 import com.mealton.agent.ToolRegistry;
+import com.mealton.agent.tools.ConvertTool;
 import com.mealton.agent.tools.PantryTool;
 import com.mealton.agent.tools.ShoppingListTool;
 import com.mealton.llm.LLMClient;
@@ -19,6 +20,7 @@ import com.mealton.pantry.PantryObserver;
 import com.mealton.repository.InMemoryPantryRepository;
 import com.mealton.shopping.ShoppingItem;
 import com.mealton.shopping.ShoppingService;
+import com.mealton.util.UnitConverter;
 
 /**
  * Facade pattern + MVC controller: the single entry point used by BOTH the GUI
@@ -116,16 +118,29 @@ public class MealtonFacade {
 		return shopping.getItems();
 	}
 
+	// ---------------- Unit conversion and scaling (F10) ----------------
+
+	/** Converts an amount between two units of the same kind, e.g. 2 cup to ml. */
+	public double convertUnits(double amount, String from, String to) {
+		return UnitConverter.convert(amount, from, to);
+	}
+
+	/** Scales an ingredient amount from one number of servings to another. */
+	public double scaleAmount(double amount, int fromServings, int toServings) {
+		return UnitConverter.scale(amount, fromServings, toServings);
+	}
+
 	// ---------------- AI chat agent (F14) ----------------
 
 	/**
-	 * Creates the chat agent with the given LLM. It can use the pantry and shopping
-	 * list tools.
+	 * Creates the chat agent with the given LLM. It can use the pantry, shopping
+	 * list and convert tools.
 	 */
 	public void enableAgent(LLMClient llm) {
 		ToolRegistry registry = new ToolRegistry();
 		registry.register(new PantryTool(pantry));
 		registry.register(new ShoppingListTool(shopping));
+		registry.register(new ConvertTool());
 		this.agent = new MealtonAgent(llm, registry, new AgentMemory());
 	}
 
