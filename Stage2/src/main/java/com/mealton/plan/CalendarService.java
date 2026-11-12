@@ -25,7 +25,8 @@ import com.mealton.recipe.RecipeIngredient;
  * for without touching the plan.
  * <p>
  * Weeks always run Monday to Sunday, so the plan's Monday lands on a Monday of
- * the calendar. The calendar is kept in memory only.
+ * the calendar. The calendar lives in memory while the program runs; it is
+ * saved with the rest of the user's data (see UserDataMapper).
  */
 public class CalendarService {
 	private final PlanService planner;
@@ -91,6 +92,17 @@ public class CalendarService {
 			}
 		}
 		return entries;
+	}
+
+	/** Every date that has at least one meal, in date order (used when saving). */
+	public synchronized List<LocalDate> plannedDates() {
+		List<LocalDate> dates = new ArrayList<>();
+		for (Map.Entry<LocalDate, Map<MealSlot, Recipe>> entry : days.entrySet()) {
+			if (!entry.getValue().isEmpty()) {
+				dates.add(entry.getKey());
+			}
+		}
+		return dates;
 	}
 
 	public synchronized int mealCountOn(LocalDate date) {
