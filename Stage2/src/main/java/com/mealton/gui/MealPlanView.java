@@ -30,6 +30,7 @@ import javafx.scene.layout.VBox;
  * check it against your profile, and put everything it needs on the shopping
  * list. (Stage 1 called this page the calendar.)
  */
+
 public class MealPlanView extends BorderPane {
 	private final MealtonFacade facade;
 	private final Runnable onDataChanged; // lets the pantry/list page refresh after we change the list
