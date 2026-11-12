@@ -46,6 +46,12 @@ import com.mealton.util.UnitConverter;
  * agent...) will be added here.
  */
 public class MealtonFacade {
+	/**
+	 * A recipe counts as "almost there" when it is missing at most this many
+	 * ingredients.
+	 */
+	public static final int ALMOST_THERE_LIMIT = 3;
+
 	private final PantryInventory pantry;
 	private final ShoppingService shopping;
 	private final FreshnessScheduler scheduler;
@@ -56,6 +62,7 @@ public class MealtonFacade {
 	private final MacroTracker tracker = new MacroTracker(profile::get);
 	private final AgentMemory memory = new AgentMemory();
 	private MealtonAgent agent; // null until enableAgent() is called
+	private LLMClient llm; // null until enableAgent() is called; also writes the one-line recipe reasons
 
 	public MealtonFacade() {
 		this(Clock.systemDefaultZone());
@@ -176,8 +183,32 @@ public class MealtonFacade {
 		return recipes.get(id);
 	}
 
+	/** Every recipe: the ready-made library plus the user's own. */
 	public List<Recipe> getRecipes() {
 		return recipes.getAll();
+	}
+
+	/**
+	 * "My Recipes": the user's own recipes plus the library recipes they saved with
+	 * the Save heart.
+	 */
+	public List<Recipe> getMyRecipes() {
+		return recipes.getMyRecipes();
+	}
+
+	/**
+	 * The Save heart: adds a recipe to My Recipes. Saving it twice changes nothing.
+	 */
+	public Recipe saveToMyRecipes(long id) {
+		return recipes.setSaved(id, true);
+	}
+
+	/**
+	 * Takes a library recipe out of My Recipes again (the recipe itself stays in
+	 * the browser).
+	 */
+	public Recipe removeFromMyRecipes(long id) {
+		return recipes.setSaved(id, false);
 	}
 
 	public List<Recipe> getTopRatedRecipes() {
@@ -205,6 +236,67 @@ public class MealtonFacade {
 	 */
 	public List<RecipeMatch> suggestRecipes(String priority) {
 		return advisor.suggest(priority);
+	}
+
+	/**
+	 * The "Can make now" tab: recipes with nothing missing. priority: "best"
+	 * (default) or "expiring".
+	 */
+	public List<RecipeMatch> canMakeNow(String priority) {
+		return advisor.canMakeNow(priority);
+	}
+
+	/**
+	 * The "Almost there" tab: recipes missing at most {@link #ALMOST_THERE_LIMIT}
+	 * ingredients.
+	 */
+	public List<RecipeMatch> almostThere() {
+		return advisor.almostThere(ALMOST_THERE_LIMIT);
+	}
+
+	/**
+	 * A short reason why a recipe suits the pantry (Stage 1: the AI writes one line
+	 * per match, the ranking itself stays deterministic). If the AI is off or
+	 * fails, a plain built-in sentence is returned instead.
+	 */
+	public String explainRecipe(long id) {
+		RecipeMatch match = advisor.check(id);
+		String fallback = plainReason(match);
+		if (llm == null) {
+			return fallback;
+		}
+		try {
+			String prompt = "In one or two short, friendly sentences, say why this recipe is a good idea for the cook "
+					+ "right now. Do not invent ingredients and do not repeat the recipe steps.\n" + "Recipe: "
+					+ match.recipe().getTitle() + "\n" + "Ingredients the cook already has: " + names(match.available())
+					+ "\n" + "Ingredients still missing: " + names(match.missing()) + "\n"
+					+ "Pantry items that must be used soon: " + match.expiringUsed() + "\n" + "Diet: "
+					+ profile.get().diet().label()
+					+ (match.warnings().isEmpty() ? "" : "\nProfile warnings: " + String.join("; ", match.warnings()));
+			String answer = llm.generate(prompt);
+			if (answer == null || answer.isBlank() || answer.equals(com.mealton.llm.MockLLMClient.DEFAULT_REPLY)) {
+				return fallback; // the offline mock has nothing useful to say
+			}
+			return answer.trim();
+		} catch (RuntimeException e) {
+			return fallback;
+		}
+	}
+
+	private static String plainReason(RecipeMatch match) {
+		if (match.isCookable()) {
+			return "You have everything you need for " + match.recipe().getTitle() + "."
+					+ (match.expiringUsed() > 0
+							? " It also uses " + match.expiringUsed() + " item(s) that should be eaten soon."
+							: "");
+		}
+		return "You already have " + match.available().size() + " of "
+				+ (match.available().size() + match.missing().size()) + " ingredients for " + match.recipe().getTitle()
+				+ "; missing: " + names(match.missing()) + ".";
+	}
+
+	private static String names(List<RecipeIngredient> list) {
+		return list.isEmpty() ? "none" : String.join(", ", list.stream().map(RecipeIngredient::name).toList());
 	}
 
 	/** How one saved recipe fits the pantry right now. */
@@ -355,6 +447,7 @@ public class MealtonFacade {
 		registry.register(new ProfileTool(profile));
 		registry.register(new NutritionTool(tracker, this::today));
 		registry.register(new PlanTool(planner));
+		this.llm = llm;
 		this.agent = new MealtonAgent(llm, registry, memory);
 	}
 
