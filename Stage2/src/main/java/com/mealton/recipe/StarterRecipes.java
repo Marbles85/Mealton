@@ -8,8 +8,9 @@ import com.mealton.facade.MealtonFacade;
 /**
  * A small library of ready-made recipes that the app loads when it starts, so
  * the Recipes page is never empty and recipe ideas, profile warnings and the
- * weekly plan have something to work with right away. They are ordinary saved
- * recipes: they can be rated, scaled and deleted like any other.
+ * weekly plan have something to work with right away. They are "library"
+ * recipes: they appear in the recipe browser and can be rated, scaled and saved
+ * to My Recipes with the Save heart.
  */
 public final class StarterRecipes {
 
@@ -50,8 +51,10 @@ public final class StarterRecipes {
 	public static List<Recipe> create() {
 		List<Recipe> recipes = new ArrayList<>();
 		for (String[] row : DATA) {
-			recipes.add(new Recipe(row[0], Integer.parseInt(row[1]), RecipeParser.parseIngredients(row[2]),
-					RecipeParser.parseSteps(row[3])));
+			Recipe recipe = new Recipe(row[0], Integer.parseInt(row[1]), RecipeParser.parseIngredients(row[2]),
+					RecipeParser.parseSteps(row[3]));
+			recipe.setLibrary(true);
+			recipes.add(recipe);
 		}
 		return recipes;
 	}
