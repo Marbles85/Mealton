@@ -24,15 +24,21 @@ import javafx.scene.layout.Region;
 public class MainWindow extends BorderPane {
 	public static final String PANTRY_PAGE = "Pantry & List";
 	public static final String CHAT_PAGE = "Mealton Chat";
+	public static final String RECIPES_PAGE = "Recipes";
 	public static final String PROFILE_PAGE = "Profile";
 
 	private final Map<String, Node> pages = new LinkedHashMap<>();
 
 	public MainWindow(MealtonFacade facade) {
 		PantryShoppingView pantryView = new PantryShoppingView(facade);
+		RecipesView recipesView = new RecipesView(facade, pantryView::refreshAll);
 		pages.put(PANTRY_PAGE, pantryView);
-		// after the AI agent uses a tool, the pantry/shopping page reloads what changed
-		pages.put(CHAT_PAGE, new ChatView(facade, pantryView::refreshAll));
+		// after the AI agent uses a tool, the other pages reload what may have changed
+		pages.put(CHAT_PAGE, new ChatView(facade, () -> {
+			pantryView.refreshAll();
+			recipesView.refresh();
+		}));
+		pages.put(RECIPES_PAGE, recipesView);
 		pages.put(PROFILE_PAGE, new ProfileView(facade));
 
 		Label title = new Label("Mealton");
@@ -45,7 +51,7 @@ public class MainWindow extends BorderPane {
 			b.setOnAction(e -> showPage(name));
 			nav.getChildren().add(b);
 		}
-		for (String planned : List.of("Calendar", "Recipes")) {
+		for (String planned : List.of("Calendar")) {
 			Button b = new Button(planned);
 			b.setDisable(true);
 			b.setTooltip(new Tooltip("Coming soon"));
@@ -67,6 +73,9 @@ public class MainWindow extends BorderPane {
 	public void showPage(String name) {
 		Node page = pages.get(name);
 		if (page != null) {
+			if (page instanceof RecipesView recipes) {
+				recipes.refresh(); // the pantry may have changed since this page was last shown
+			}
 			setCenter(page);
 		}
 	}
