@@ -7,6 +7,10 @@ import java.util.List;
 /**
  * A recipe the user can save, rate and scale (Stage 1 domain class Recipe,
  * feature F13). The rating is 0 until the user rates it, then 1 to 5 stars.
+ * <p>
+ * A recipe is either one the user made themselves, or a "library" recipe that
+ * comes with the app. Library recipes only appear in "My Recipes" after the
+ * user saves them (the Save heart).
  */
 public class Recipe {
 	private long id; // assigned by the repository when the recipe is saved
@@ -15,6 +19,8 @@ public class Recipe {
 	private final List<RecipeIngredient> ingredients;
 	private final List<String> steps;
 	private int rating;
+	private boolean library; // true for recipes that come with the app
+	private boolean saved; // true when the user saved a library recipe to My Recipes
 
 	public Recipe(String title, int servings, List<RecipeIngredient> ingredients, List<String> steps) {
 		if (title == null || title.isBlank()) {
@@ -71,6 +77,33 @@ public class Recipe {
 			throw new IllegalArgumentException("A rating must be between 1 and 5 stars.");
 		}
 		this.rating = stars;
+	}
+
+	/**
+	 * True for ready-made recipes that come with the app (not made by the user).
+	 */
+	public boolean isLibrary() {
+		return library;
+	}
+
+	public void setLibrary(boolean library) {
+		this.library = library;
+	}
+
+	/** True when the user saved this recipe with the Save heart. */
+	public boolean isSaved() {
+		return saved;
+	}
+
+	public void setSaved(boolean saved) {
+		this.saved = saved;
+	}
+
+	/**
+	 * "My Recipes" holds the user's own recipes and the library recipes they saved.
+	 */
+	public boolean isInMyRecipes() {
+		return !library || saved;
 	}
 
 	/**
