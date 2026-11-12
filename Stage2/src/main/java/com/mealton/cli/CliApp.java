@@ -24,6 +24,7 @@ import com.mealton.recipe.Recipe;
 import com.mealton.recipe.RecipeIngredient;
 import com.mealton.recipe.RecipeMatch;
 import com.mealton.recipe.RecipeParser;
+import com.mealton.recipe.RecipeTag;
 import com.mealton.shopping.ShoppingItem;
 import com.mealton.util.Formats;
 
@@ -187,7 +188,7 @@ public final class CliApp implements PantryObserver {
 	private void recipe(List<String> a) {
 		if (a.isEmpty()) {
 			throw new IllegalArgumentException(
-					"Usage: recipe add|list|mine|now|almost|why|save|unsave|top|show|rate|scale|suggest|check|missing|delete");
+					"Usage: recipe add|list|mine|now|almost|why|save|unsave|eat|nutrition|tags|top|show|rate|scale|suggest|check|missing|delete");
 		}
 		switch (a.get(0).toLowerCase()) {
 		case "add" -> {
@@ -205,26 +206,57 @@ public final class CliApp implements PantryObserver {
 		case "mine" -> printRecipes(facade.getMyRecipes(),
 				"My Recipes is empty. Save a recipe with 'recipe save <id>' or add your own with 'recipe add'.");
 		case "now" -> {
-			if (a.size() > 2) {
-				throw new IllegalArgumentException("Usage: recipe now [best|expiring]");
+			Args p = Args.parse(a.subList(1, a.size()));
+			if (p.positional.size() > 1) {
+				throw new IllegalArgumentException("Usage: recipe now [best|expiring] [--tag vegan,light]");
 			}
-			List<RecipeMatch> now = facade.canMakeNow(a.size() == 2 ? a.get(1) : "best");
+			List<RecipeMatch> now = facade.canMakeNow(p.positional.isEmpty() ? "best" : p.positional.get(0),
+					RecipeTag.setFromText(p.flags.get("tag")));
 			if (now.isEmpty()) {
-				out.println(
-						"Nothing can be cooked with your pantry right now. Try 'recipe almost', or add food to the pantry.");
+				out.println("Nothing can be cooked with your pantry right now"
+						+ (p.flags.containsKey("tag") ? " with those tags" : "")
+						+ ". Try 'recipe almost', or add food to the pantry.");
 			}
 			now.forEach(this::printMatch);
 		}
 		case "almost" -> {
-			if (a.size() != 1) {
-				throw new IllegalArgumentException("Usage: recipe almost");
+			Args p = Args.parse(a.subList(1, a.size()));
+			if (!p.positional.isEmpty()) {
+				throw new IllegalArgumentException("Usage: recipe almost [--tag vegan,light]");
 			}
-			List<RecipeMatch> almost = facade.almostThere();
+			List<RecipeMatch> almost = facade.almostThere(RecipeTag.setFromText(p.flags.get("tag")));
 			if (almost.isEmpty()) {
 				out.println("No recipes are within " + MealtonFacade.ALMOST_THERE_LIMIT
-						+ " ingredients of being cookable. Add food to the pantry to see some here.");
+						+ " ingredients of being cookable" + (p.flags.containsKey("tag") ? " with those tags" : "")
+						+ ". Add food to the pantry to see some here.");
 			}
 			almost.forEach(this::printMatch);
+		}
+		case "nutrition" -> {
+			long id = oneId(a, "recipe nutrition <id>");
+			Recipe r = facade.getRecipe(id);
+			var n = facade.recipeNutrition(id);
+			out.println(r.getTitle() + " (" + r.getServings() + " servings)");
+			out.println("  " + n.line());
+			if (!n.counted().isEmpty()) {
+				out.println("  Whole recipe (estimate): " + n.total().summary());
+			}
+		}
+		case "tags" -> {
+			long id = oneId(a, "recipe tags <id>");
+			var tags = facade.tagsOf(id);
+			out.println(facade.getRecipe(id).getTitle() + ": " + (tags.isEmpty() ? "no tags"
+					: tags.stream().map(RecipeTag::label).collect(Collectors.joining(", "))));
+		}
+		case "eat" -> {
+			if (a.size() < 2 || a.size() > 3) {
+				throw new IllegalArgumentException(
+						"Usage: recipe eat <id> [servings]   (writes it into today's food diary)");
+			}
+			double servings = a.size() == 3 ? Formats.parseQuantity(a.get(2)) : 1;
+			LoggedFood entry = facade.logRecipeServings(parseId(a.get(1)), servings);
+			out.println("Logged " + entry);
+			out.println(facade.getTodaysProgress().summary());
 		}
 		case "why" -> {
 			long id = oneId(a, "recipe why <id>");
@@ -335,6 +367,7 @@ public final class CliApp implements PantryObserver {
 	private void printRecipe(Recipe r) {
 		out.println(r.getTitle() + " (" + r.getServings() + " servings, "
 				+ (r.isRated() ? r.getRating() + "/5 stars" : "not rated") + ")");
+		out.println(facade.estimateNutrition(r).line());
 		out.println("Ingredients:");
 		for (RecipeIngredient ingredient : r.getIngredients()) {
 			out.println("  - " + ingredient);
@@ -499,6 +532,17 @@ public final class CliApp implements PantryObserver {
 				out.println("The plan looks fine.");
 			}
 			problems.forEach(p -> out.println("  ! " + p));
+		}
+		case "prep" -> {
+			if (a.size() > 2 || (a.size() == 2 && !a.get(1).equalsIgnoreCase("ai"))) {
+				throw new IllegalArgumentException("Usage: plan prep [ai]");
+			}
+			if (a.size() == 2) {
+				out.println("(thinking...)");
+				out.println(facade.prepSchedule());
+			} else {
+				out.println(facade.buildPrepPlan().describe());
+			}
 		}
 		case "shop" -> {
 			List<RecipeIngredient> added = facade.addPlanToShoppingList();
@@ -778,8 +822,10 @@ public final class CliApp implements PantryObserver {
 						  shop list | check <id...> | delete <id...> | clear-checked | undo | redo
 						  recipe add "<title>" <servings> "<ing1; ing2; ...>" ["<step1|step2>"]
 						  recipe list | top | show <id> | rate <id> <1-5> | scale <id> <servings> | delete <id>
-						  recipe now [best|expiring]       (Can make now: nothing missing)
-						  recipe almost                    (Almost there: only a few ingredients missing)
+						  recipe now [best|expiring] [--tag t1,t2]   (Can make now: nothing missing)
+						  recipe almost [--tag t1,t2]      (Almost there: only a few ingredients missing)
+						  tags: vegetarian, vegan, high-protein, light, fits-my-profile, uses-expiring
+						  recipe nutrition <id> | tags <id> | eat <id> [servings]   (nutrition estimate; eat = log it in the food diary)
 						  recipe why <id>                  (the AI says why a recipe suits you)
 						  recipe save <id> | unsave <id> | mine   (My Recipes: the Save heart)
 						  recipe suggest [best|expiring]   (rank your recipes against your pantry)
@@ -790,6 +836,7 @@ public final class CliApp implements PantryObserver {
 						  food log <food> [amount] [unit] | custom "<what>" <kcal> <p> <c> <f> | list | delete <id> | today
 						  plan generate [variety|pantry] [dinner|lunch,dinner|all]   (plan the week from your recipes)
 						  plan [show] | set <day> <meal> <recipe id> | clear <day> <meal> | clear all | check | shop
+						  plan prep [ai]                   (one combined prep list for the week; 'ai' asks for a schedule)
 						  calendar load [date]             (put the plan on that date's Monday-to-Sunday week)
 						  calendar week [date] | day <date> | set <date> <meal> <recipe id> | clear <date> <meal> | clear week <date> | shop [date]
 						  convert <amount> <from> <to>       (units: g kg oz lb ml l tsp tbsp cup)
