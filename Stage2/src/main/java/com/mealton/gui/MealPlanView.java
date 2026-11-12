@@ -17,6 +17,7 @@ import com.mealton.plan.WeekPlan;
 import com.mealton.recipe.Recipe;
 import com.mealton.recipe.RecipeIngredient;
 
+import javafx.concurrent.Task;
 import javafx.geometry.Insets;
 import javafx.scene.control.Button;
 import javafx.scene.control.ComboBox;
@@ -33,10 +34,11 @@ import javafx.scene.layout.Priority;
 import javafx.scene.layout.VBox;
 
 /**
- * The "Meal Plan" page (F02 and F03), one page with two parts:
+ * The "Meal Plan" page (F02, F05 and F03), one page with two parts:
  * <ol>
  * <li><b>Build a plan</b>: generate a weekly plan from your recipes, tweak it,
- * check it against your profile.</li>
+ * check it against your profile, and make a prep-day list (one combined
+ * ingredient list, with an optional AI schedule).</li>
  * <li><b>Calendar</b>: a month calendar. Pick a date and <i>load</i> the plan
  * onto that date's week (Monday to Sunday). Click any date to see or change its
  * meals.</li>
@@ -55,6 +57,8 @@ public class MealPlanView extends BorderPane {
 	private final ComboBox<Recipe> planRecipeBox = new ComboBox<>();
 	private final TextArea notes = new TextArea();
 	private final Label planStatus = new Label();
+	private final TextArea prepArea = new TextArea();
+	private final Button aiPrep = new Button("AI prep schedule");
 
 	// part 2: the calendar
 	private final GridPane monthGrid = new GridPane();
@@ -173,7 +177,55 @@ public class MealPlanView extends BorderPane {
 		notes.setPrefRowCount(3);
 		notes.setPromptText("Problems with the plan (allergy or diet clashes, too many repeats) show up here.");
 
-		return new VBox(8, heading, controls, planGrid, change, actions, notes, planStatus);
+		// prep day (F05): one combined list for the week; the AI can turn it into a
+		// short schedule
+		Button prepList = new Button("Make prep list");
+		prepList.setOnAction(e -> attempt(planStatus, () -> {
+			prepArea.setText(facade.buildPrepPlan().describe());
+			ok(planStatus, "Prep list made from the current plan.");
+		}));
+		aiPrep.setOnAction(e -> askPrepSchedule());
+		prepArea.setEditable(false);
+		prepArea.setWrapText(true);
+		prepArea.setPrefRowCount(10);
+		prepArea.setPromptText("Press 'Make prep list' to see everything the week needs in one list, "
+				+ "which ingredients are shared, and which recipes to batch-cook.");
+		TitledPane prep = new TitledPane("Prep day", new VBox(8, new HBox(8, prepList, aiPrep), prepArea));
+		prep.setExpanded(false);
+
+		return new VBox(8, heading, controls, planGrid, change, actions, notes, prep, planStatus);
+	}
+
+	/**
+	 * Asks the AI for the prep-day schedule in the background, so the window never
+	 * freezes.
+	 */
+	private void askPrepSchedule() {
+		if (facade.getPlan().mealCount() == 0) {
+			planStatus.setStyle("-fx-text-fill: #c62828;");
+			planStatus.setText("The plan is empty. Generate a plan first, then make the prep list.");
+			return;
+		}
+		aiPrep.setDisable(true);
+		prepArea.setText("Asking the AI...");
+		Task<String> task = new Task<>() {
+			@Override
+			protected String call() {
+				return facade.prepSchedule();
+			}
+		};
+		task.setOnSucceeded(e -> {
+			prepArea.setText(task.getValue());
+			aiPrep.setDisable(false);
+			ok(planStatus, "Prep schedule ready.");
+		});
+		task.setOnFailed(e -> {
+			prepArea.setText("Could not get a schedule right now. Try 'Make prep list' instead.");
+			aiPrep.setDisable(false);
+		});
+		Thread thread = new Thread(task, "prep-schedule");
+		thread.setDaemon(true);
+		thread.start();
 	}
 
 	// ---------------- part 2: the calendar ----------------
