@@ -157,6 +157,11 @@ public class MealtonFacade {
 		return shopping.clearChecked();
 	}
 
+	/** Forgets the shopping undo/redo history (used after loading saved items). */
+	public void forgetShoppingHistory() {
+		shopping.forgetHistory();
+	}
+
 	public boolean undo() {
 		return shopping.undo();
 	}
@@ -519,6 +524,11 @@ public class MealtonFacade {
 		return calendar.clearWeek(anyDateInWeek);
 	}
 
+	/** Every date that has a meal on the calendar (used when saving). */
+	public List<LocalDate> getCalendarDates() {
+		return calendar.plannedDates();
+	}
+
 	public int getCalendarMealsInWeek(LocalDate anyDateInWeek) {
 		return calendar.mealsInWeek(anyDateInWeek);
 	}
@@ -538,6 +548,16 @@ public class MealtonFacade {
 	/** Logs a food with your own numbers (or an AI estimate) for today. */
 	public LoggedFood logCustomFood(String description, Nutrients nutrients, boolean estimated) {
 		return tracker.logCustom(today(), description, nutrients, estimated);
+	}
+
+	/** Every food ever logged, on every day (used when saving). */
+	public List<LoggedFood> getAllLoggedFood() {
+		return tracker.allEntries();
+	}
+
+	/** Puts a saved diary entry back on its original day (used when loading). */
+	public LoggedFood restoreLoggedFood(LocalDate date, String description, Nutrients nutrients, boolean estimated) {
+		return tracker.logCustom(date, description, nutrients, estimated);
 	}
 
 	public List<LoggedFood> getTodaysFood() {
