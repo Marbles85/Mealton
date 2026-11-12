@@ -1,7 +1,6 @@
 package com.mealton.gui;
 
 import java.util.LinkedHashMap;
-import java.util.List;
 import java.util.Map;
 
 import com.mealton.facade.MealtonFacade;
@@ -11,7 +10,6 @@ import javafx.geometry.Pos;
 import javafx.scene.Node;
 import javafx.scene.control.Button;
 import javafx.scene.control.Label;
-import javafx.scene.control.Tooltip;
 import javafx.scene.layout.BorderPane;
 import javafx.scene.layout.HBox;
 import javafx.scene.layout.Priority;
@@ -19,12 +17,13 @@ import javafx.scene.layout.Region;
 
 /**
  * Main window: a header with page navigation and the current page in the centre
- * (Stage 1: MainWindow). Pages that are not built yet appear disabled.
+ * (Stage 1: MainWindow).
  */
 public class MainWindow extends BorderPane {
 	public static final String PANTRY_PAGE = "Pantry & List";
 	public static final String CHAT_PAGE = "Mealton Chat";
 	public static final String RECIPES_PAGE = "Recipes";
+	public static final String MEAL_PLAN_PAGE = "Meal Plan";
 	public static final String PROFILE_PAGE = "Profile";
 
 	private final Map<String, Node> pages = new LinkedHashMap<>();
@@ -32,14 +31,17 @@ public class MainWindow extends BorderPane {
 	public MainWindow(MealtonFacade facade) {
 		PantryShoppingView pantryView = new PantryShoppingView(facade);
 		RecipeBrowserView recipesView = new RecipeBrowserView(facade, pantryView::refreshAll);
+		MealPlanView planView = new MealPlanView(facade, pantryView::refreshAll);
 		pages.put(PANTRY_PAGE, pantryView);
 		// after the AI agent uses a tool, the pantry/shopping and recipe pages reload
 		// what changed
 		pages.put(CHAT_PAGE, new ChatView(facade, () -> {
 			pantryView.refreshAll();
 			recipesView.refresh();
+			planView.refresh();
 		}));
 		pages.put(RECIPES_PAGE, recipesView);
+		pages.put(MEAL_PLAN_PAGE, planView);
 		pages.put(PROFILE_PAGE, new ProfileView(facade));
 
 		Label title = new Label("Mealton");
@@ -52,13 +54,6 @@ public class MainWindow extends BorderPane {
 			b.setOnAction(e -> showPage(name));
 			nav.getChildren().add(b);
 		}
-		for (String planned : List.of("Calendar")) {
-			Button b = new Button(planned);
-			b.setDisable(true);
-			b.setTooltip(new Tooltip("Coming soon"));
-			nav.getChildren().add(b);
-		}
-
 		Region spacer = new Region();
 		HBox.setHgrow(spacer, Priority.ALWAYS);
 		HBox header = new HBox(20, title, nav, spacer);
@@ -74,10 +69,12 @@ public class MainWindow extends BorderPane {
 	public void showPage(String name) {
 		Node page = pages.get(name);
 		if (page != null) {
-			// the recipe page depends on the pantry and the profile, so reload it every
-			// time it is opened
+			// the recipe and plan pages depend on the pantry, recipes and profile, so
+			// reload them every time they are opened
 			if (page instanceof RecipeBrowserView browser) {
 				browser.refresh();
+			} else if (page instanceof MealPlanView plan) {
+				plan.refresh();
 			}
 			setCenter(page);
 		}
