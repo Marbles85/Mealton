@@ -52,6 +52,39 @@ public class RecipeAdvisor {
 		return matches;
 	}
 
+	/**
+	 * The "Can make now" tab: recipes where nothing is missing, ranked by the
+	 * chosen priority.
+	 */
+	public List<RecipeMatch> canMakeNow(String priority) {
+		return suggest(priority).stream().filter(RecipeMatch::isCookable).toList();
+	}
+
+	/**
+	 * The "Almost there" tab: recipes that are missing only a few ingredients,
+	 * fewest missing first. A recipe must have at least one ingredient in the
+	 * pantry, so an empty pantry shows nothing here.
+	 *
+	 * @param maxMissing the most missing ingredients allowed (at least 1)
+	 */
+	public List<RecipeMatch> almostThere(int maxMissing) {
+		if (maxMissing < 1) {
+			throw new IllegalArgumentException("Almost there needs a limit of at least 1 missing ingredient.");
+		}
+		List<RecipeMatch> almost = new ArrayList<>();
+		for (RecipeMatch match : suggest("best")) {
+			if (!match.isCookable() && !match.available().isEmpty() && match.missing().size() <= maxMissing) {
+				almost.add(match);
+			}
+		}
+		// fewest missing first, then the better covered; the sort is stable, so warned
+		// recipes stay last
+		almost.sort(Comparator.comparing((RecipeMatch m) -> !m.warnings().isEmpty())
+				.thenComparingInt(m -> m.missing().size())
+				.thenComparing(Comparator.comparingDouble(RecipeMatch::coverage).reversed()));
+		return almost;
+	}
+
 	/** How one saved recipe fits the pantry right now. */
 	public RecipeMatch check(long recipeId) {
 		return withWarnings(matcher.matchOne(book.get(recipeId), pantry.getItems(), pantry.today()));
