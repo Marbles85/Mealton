@@ -6,6 +6,7 @@ import com.mealton.facade.MealtonFacade;
 import com.mealton.llm.ClaudeAdapter;
 import com.mealton.llm.LLMClient;
 import com.mealton.llm.LLMClientFactory;
+import com.mealton.recipe.StarterRecipes;
 
 /**
  * Entry point for the command-line version. The GUI starts from MealtonApp
@@ -18,6 +19,8 @@ public class Main {
 		}
 
 		MealtonFacade facade = new MealtonFacade();
+		int starters = StarterRecipes.loadInto(facade);
+		System.out.println("Loaded " + starters + " starter recipes (see 'recipe list').");
 		LLMClient llm = null;
 
 		// Read the local .env and build the AI client (real Claude or the offline
