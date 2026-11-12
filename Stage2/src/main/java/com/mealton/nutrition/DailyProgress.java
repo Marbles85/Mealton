@@ -40,7 +40,9 @@ public record DailyProgress(LocalDate date, Nutrients total, int entryCount, Use
 	}
 
 	private static String line(String label, double eaten, int goal, String unit) {
-		String text = "  " + label + ": " + Formats.number(Math.round(eaten * 10.0) / 10.0);
+		// whole kcal, grams to one decimal
+		double shown = unit.equals("kcal") ? Math.round(eaten) : Math.round(eaten * 10.0) / 10.0;
+		String text = "  " + label + ": " + Formats.number(shown);
 		if (goal == 0) {
 			return text + " " + unit + " (no goal set)";
 		}
