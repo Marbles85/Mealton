@@ -78,6 +78,7 @@ public final class CliApp implements PantryObserver {
 			case "recipe" -> recipe(t.subList(1, t.size()));
 			case "profile" -> profile(t.subList(1, t.size()));
 			case "food" -> food(t.subList(1, t.size()));
+			case "plan" -> plan(t.subList(1, t.size()));
 			case "chat" -> chat(line);
 			case "convert" -> convert(t.subList(1, t.size()));
 			case "scale" -> scale(t.subList(1, t.size()));
@@ -412,6 +413,61 @@ public final class CliApp implements PantryObserver {
 		}
 	}
 
+	// ---------------- weekly meal plan (F02) ----------------
+
+	private void plan(List<String> a) {
+		if (a.isEmpty() || a.get(0).equalsIgnoreCase("show")) {
+			out.println(facade.getPlan().describe());
+			return;
+		}
+		switch (a.get(0).toLowerCase()) {
+		case "generate" -> {
+			if (a.size() > 3) {
+				throw new IllegalArgumentException("Usage: plan generate [variety|pantry] [dinner|lunch,dinner|all]");
+			}
+			out.println(facade.generatePlan(a.size() > 1 ? a.get(1) : "", a.size() > 2 ? a.get(2) : "").describe());
+			printPlanProblems();
+		}
+		case "set" -> {
+			requireSize(a, 4, "plan set <day> <breakfast|lunch|dinner> <recipe id>");
+			out.println(facade.setPlannedMeal(a.get(1), a.get(2), parseId(a.get(3))).describe());
+			printPlanProblems();
+		}
+		case "clear" -> {
+			if (a.size() == 2 && a.get(1).equalsIgnoreCase("all")) {
+				facade.clearPlan();
+				out.println("The plan was deleted.");
+			} else {
+				requireSize(a, 3, "plan clear <day> <meal>   or   plan clear all");
+				out.println(facade.clearPlannedMeal(a.get(1), a.get(2)).describe());
+			}
+		}
+		case "check" -> {
+			List<String> problems = facade.checkPlan();
+			if (problems.isEmpty()) {
+				out.println("The plan looks fine.");
+			}
+			problems.forEach(p -> out.println("  ! " + p));
+		}
+		case "shop" -> {
+			List<RecipeIngredient> added = facade.addPlanToShoppingList();
+			if (added.isEmpty()) {
+				out.println("Nothing to add: the pantry and shopping list already cover the plan.");
+			} else {
+				out.println("Added to the shopping list:");
+				added.forEach(i -> out.println("  + " + i));
+			}
+		}
+		default -> throw new IllegalArgumentException("Unknown plan command '" + a.get(0) + "'. Type 'help'.");
+		}
+	}
+
+	private void printPlanProblems() {
+		for (String problem : facade.checkPlan()) {
+			out.println("  ! " + problem);
+		}
+	}
+
 	// ---------------- unit conversion and scaling (F10) ----------------
 
 	private void convert(List<String> args) {
@@ -599,6 +655,8 @@ public final class CliApp implements PantryObserver {
 				  profile [show] | name <name> | diet <diet> | calories <kcal> | macros <p> <c> <f> | reset
 				  profile allergy add|remove <food>   (recipe suggestions then warn about conflicts)
 				  food log <food> [amount] [unit] | custom "<what>" <kcal> <p> <c> <f> | list | delete <id> | today
+				  plan generate [variety|pantry] [dinner|lunch,dinner|all]   (plan the week from your recipes)
+				  plan [show] | set <day> <meal> <recipe id> | clear <day> <meal> | clear all | check | shop
 				  convert <amount> <from> <to>       (units: g kg oz lb ml l tsp tbsp cup)
 				  scale <amount> <from servings> <to servings>
 				  chat                 (talk to the AI assistant; 'back' to leave)
