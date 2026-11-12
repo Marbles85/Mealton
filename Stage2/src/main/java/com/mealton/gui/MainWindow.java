@@ -31,9 +31,10 @@ public class MainWindow extends BorderPane {
 
 	public MainWindow(MealtonFacade facade) {
 		PantryShoppingView pantryView = new PantryShoppingView(facade);
-		RecipesView recipesView = new RecipesView(facade, pantryView::refreshAll);
+		RecipeBrowserView recipesView = new RecipeBrowserView(facade, pantryView::refreshAll);
 		pages.put(PANTRY_PAGE, pantryView);
-		// after the AI agent uses a tool, the other pages reload what may have changed
+		// after the AI agent uses a tool, the pantry/shopping and recipe pages reload
+		// what changed
 		pages.put(CHAT_PAGE, new ChatView(facade, () -> {
 			pantryView.refreshAll();
 			recipesView.refresh();
@@ -73,8 +74,10 @@ public class MainWindow extends BorderPane {
 	public void showPage(String name) {
 		Node page = pages.get(name);
 		if (page != null) {
-			if (page instanceof RecipesView recipes) {
-				recipes.refresh(); // the pantry may have changed since this page was last shown
+			// the recipe page depends on the pantry and the profile, so reload it every
+			// time it is opened
+			if (page instanceof RecipeBrowserView browser) {
+				browser.refresh();
 			}
 			setCenter(page);
 		}
