@@ -471,9 +471,11 @@ public class MealtonFacade {
 			return plain;
 		}
 		try {
-			String prompt = "Write a short prep-day schedule (4 to 6 numbered steps) for the cook, using ONLY the "
+			String prompt = "Write a short prep-day schedule of 4 to 5 numbered steps for the cook, using ONLY the "
 					+ "information below. Say what to wash and chop first, what to cook in batches, and what to "
-					+ "store. Do not add ingredients or recipes that are not listed.\n\n" + plain + "\nDiet: "
+					+ "store. Each step must be ONE short sentence. Keep the whole answer under 120 words. "
+					+ "Use plain text only: no bold, no asterisks, no headings. "
+					+ "Do not add ingredients or recipes that are not listed.\n\n" + plain + "\nDiet: "
 					+ profile.get().diet().label();
 			String answer = llm.generate(prompt);
 			if (answer == null || answer.isBlank() || answer.equals(com.mealton.llm.MockLLMClient.DEFAULT_REPLY)) {
