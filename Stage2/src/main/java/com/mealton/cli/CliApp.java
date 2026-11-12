@@ -185,7 +185,7 @@ public final class CliApp implements PantryObserver {
 	private void recipe(List<String> a) {
 		if (a.isEmpty()) {
 			throw new IllegalArgumentException(
-					"Usage: recipe add|list|top|show|rate|scale|suggest|check|missing|delete");
+					"Usage: recipe add|list|mine|now|almost|why|save|unsave|top|show|rate|scale|suggest|check|missing|delete");
 		}
 		switch (a.get(0).toLowerCase()) {
 		case "add" -> {
@@ -199,7 +199,55 @@ public final class CliApp implements PantryObserver {
 			Recipe saved = facade.saveRecipe(recipe);
 			out.println("Saved recipe #" + saved.getId() + ": " + saved);
 		}
-		case "list" -> printRecipes(facade.getRecipes(), "You have no saved recipes yet.");
+		case "list" -> printRecipes(facade.getRecipes(), "There are no recipes yet.");
+		case "mine" -> printRecipes(facade.getMyRecipes(),
+				"My Recipes is empty. Save a recipe with 'recipe save <id>' or add your own with 'recipe add'.");
+		case "now" -> {
+			if (a.size() > 2) {
+				throw new IllegalArgumentException("Usage: recipe now [best|expiring]");
+			}
+			List<RecipeMatch> now = facade.canMakeNow(a.size() == 2 ? a.get(1) : "best");
+			if (now.isEmpty()) {
+				out.println(
+						"Nothing can be cooked with your pantry right now. Try 'recipe almost', or add food to the pantry.");
+			}
+			now.forEach(this::printMatch);
+		}
+		case "almost" -> {
+			if (a.size() != 1) {
+				throw new IllegalArgumentException("Usage: recipe almost");
+			}
+			List<RecipeMatch> almost = facade.almostThere();
+			if (almost.isEmpty()) {
+				out.println("No recipes are within " + MealtonFacade.ALMOST_THERE_LIMIT
+						+ " ingredients of being cookable. Add food to the pantry to see some here.");
+			}
+			almost.forEach(this::printMatch);
+		}
+		case "why" -> {
+			long id = oneId(a, "recipe why <id>");
+			out.println(facade.getRecipe(id).getTitle() + ": " + facade.explainRecipe(id));
+		}
+		case "save" -> {
+			long id = oneId(a, "recipe save <id>");
+			Recipe r = facade.getRecipe(id);
+			if (r.isInMyRecipes()) {
+				out.println("'" + r.getTitle() + "' is already in My Recipes.");
+			} else {
+				facade.saveToMyRecipes(id);
+				out.println("Saved '" + r.getTitle() + "' to My Recipes.");
+			}
+		}
+		case "unsave" -> {
+			long id = oneId(a, "recipe unsave <id>");
+			Recipe r = facade.getRecipe(id);
+			if (!r.isLibrary()) {
+				throw new IllegalArgumentException(
+						"'" + r.getTitle() + "' is your own recipe. Use 'recipe delete " + id + "' to remove it.");
+			}
+			facade.removeFromMyRecipes(id);
+			out.println("Removed '" + r.getTitle() + "' from My Recipes.");
+		}
 		case "top" -> printRecipes(facade.getTopRatedRecipes(), "No recipes have been rated yet.");
 		case "show" -> printRecipe(facade.getRecipe(oneId(a, "recipe show <id>")));
 		case "suggest" -> {
@@ -249,7 +297,8 @@ public final class CliApp implements PantryObserver {
 			out.println(emptyMessage);
 		}
 		for (Recipe r : recipes) {
-			out.println("  #" + r.getId() + " " + r + (r.isRated() ? "  " + r.getRating() + "/5" : "  not rated"));
+			out.println("  #" + r.getId() + " " + r + (r.isRated() ? "  " + r.getRating() + "/5" : "  not rated")
+					+ (r.isSaved() ? "  [saved]" : r.isLibrary() ? "" : "  [mine]"));
 		}
 	}
 
@@ -649,6 +698,10 @@ public final class CliApp implements PantryObserver {
 				  shop list | check <id...> | delete <id...> | clear-checked | undo | redo
 				  recipe add "<title>" <servings> "<ing1; ing2; ...>" ["<step1|step2>"]
 				  recipe list | top | show <id> | rate <id> <1-5> | scale <id> <servings> | delete <id>
+				  recipe now [best|expiring]       (Can make now: nothing missing)
+				  recipe almost                    (Almost there: only a few ingredients missing)
+				  recipe why <id>                  (the AI says why a recipe suits you)
+				  recipe save <id> | unsave <id> | mine   (My Recipes: the Save heart)
 				  recipe suggest [best|expiring]   (rank your recipes against your pantry)
 				  recipe check <id>                (what you have and what is missing)
 				  recipe missing <id>              (put the missing ingredients on the shopping list)
