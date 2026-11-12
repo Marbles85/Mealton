@@ -13,6 +13,7 @@ import com.mealton.agent.tools.ConvertTool;
 import com.mealton.agent.tools.MealIdeasTool;
 import com.mealton.agent.tools.NutritionTool;
 import com.mealton.agent.tools.PantryTool;
+import com.mealton.agent.tools.PlanTool;
 import com.mealton.agent.tools.ProfileTool;
 import com.mealton.agent.tools.RecipeTool;
 import com.mealton.agent.tools.ShoppingListTool;
@@ -25,6 +26,8 @@ import com.mealton.pantry.FreshnessScheduler;
 import com.mealton.pantry.PantryInventory;
 import com.mealton.pantry.PantryItem;
 import com.mealton.pantry.PantryObserver;
+import com.mealton.plan.PlanService;
+import com.mealton.plan.WeekPlan;
 import com.mealton.profile.ProfileService;
 import com.mealton.profile.UserProfile;
 import com.mealton.recipe.Recipe;
@@ -49,6 +52,7 @@ public class MealtonFacade {
 	private final RecipeBook recipes = new RecipeBook();
 	private final RecipeAdvisor advisor;
 	private final ProfileService profile = new ProfileService();
+	private final PlanService planner;
 	private final MacroTracker tracker = new MacroTracker(profile::get);
 	private final AgentMemory memory = new AgentMemory();
 	private MealtonAgent agent; // null until enableAgent() is called
@@ -62,6 +66,7 @@ public class MealtonFacade {
 		this.shopping = new ShoppingService();
 		this.scheduler = new FreshnessScheduler(pantry);
 		this.advisor = new RecipeAdvisor(recipes, pantry, shopping, profile);
+		this.planner = new PlanService(recipes, advisor, profile);
 		// whenever the profile changes, the agent's memory learns it too (so Claude
 		// always knows the diet)
 		profile.addListener(this::syncProfileToMemory);
@@ -256,6 +261,47 @@ public class MealtonFacade {
 		profile.addListener(listener);
 	}
 
+	// ---------------- Weekly meal plan (F02) ----------------
+
+	/**
+	 * Makes a new weekly plan. style: "variety" or "pantry"; meals: "dinner",
+	 * "lunch,dinner" or "all".
+	 */
+	public WeekPlan generatePlan(String style, String meals) {
+		return planner.generate(style, meals);
+	}
+
+	public WeekPlan getPlan() {
+		return planner.current();
+	}
+
+	public WeekPlan setPlannedMeal(String day, String meal, long recipeId) {
+		return planner.set(day, meal, recipeId);
+	}
+
+	public WeekPlan clearPlannedMeal(String day, String meal) {
+		return planner.clearMeal(day, meal);
+	}
+
+	public void clearPlan() {
+		planner.clearAll();
+	}
+
+	/**
+	 * Problems with the current plan (profile conflicts, too many repeats). Empty
+	 * if it looks fine.
+	 */
+	public List<String> checkPlan() {
+		return planner.validate();
+	}
+
+	/**
+	 * Puts the missing ingredients of every planned recipe on the shopping list.
+	 */
+	public List<RecipeIngredient> addPlanToShoppingList() {
+		return planner.addMissingToShoppingList();
+	}
+
 	// ---------------- Macro tracker / food diary (F04) ----------------
 
 	/** Logs an amount of a food from the built-in table for today. */
@@ -297,7 +343,7 @@ public class MealtonFacade {
 
 	/**
 	 * Creates the chat agent with the given LLM. It can use the pantry, shopping
-	 * list, recipe, profile and food diary tools.
+	 * list, recipe, profile, food diary and meal plan tools.
 	 */
 	public void enableAgent(LLMClient llm) {
 		ToolRegistry registry = new ToolRegistry();
@@ -308,6 +354,7 @@ public class MealtonFacade {
 		registry.register(new MealIdeasTool(advisor));
 		registry.register(new ProfileTool(profile));
 		registry.register(new NutritionTool(tracker, this::today));
+		registry.register(new PlanTool(planner));
 		this.agent = new MealtonAgent(llm, registry, memory);
 	}
 
