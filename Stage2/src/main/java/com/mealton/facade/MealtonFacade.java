@@ -11,11 +11,16 @@ import com.mealton.agent.MealtonAgent;
 import com.mealton.agent.ToolRegistry;
 import com.mealton.agent.tools.ConvertTool;
 import com.mealton.agent.tools.MealIdeasTool;
+import com.mealton.agent.tools.NutritionTool;
 import com.mealton.agent.tools.PantryTool;
 import com.mealton.agent.tools.ProfileTool;
 import com.mealton.agent.tools.RecipeTool;
 import com.mealton.agent.tools.ShoppingListTool;
 import com.mealton.llm.LLMClient;
+import com.mealton.nutrition.DailyProgress;
+import com.mealton.nutrition.LoggedFood;
+import com.mealton.nutrition.MacroTracker;
+import com.mealton.nutrition.Nutrients;
 import com.mealton.pantry.FreshnessScheduler;
 import com.mealton.pantry.PantryInventory;
 import com.mealton.pantry.PantryItem;
@@ -44,6 +49,7 @@ public class MealtonFacade {
 	private final RecipeBook recipes = new RecipeBook();
 	private final RecipeAdvisor advisor;
 	private final ProfileService profile = new ProfileService();
+	private final MacroTracker tracker = new MacroTracker(profile::get);
 	private final AgentMemory memory = new AgentMemory();
 	private MealtonAgent agent; // null until enableAgent() is called
 
@@ -250,6 +256,31 @@ public class MealtonFacade {
 		profile.addListener(listener);
 	}
 
+	// ---------------- Macro tracker / food diary (F04) ----------------
+
+	/** Logs an amount of a food from the built-in table for today. */
+	public LoggedFood logFood(String name, double quantity, String unit) {
+		return tracker.logFood(today(), name, quantity, unit);
+	}
+
+	/** Logs a food with your own numbers (or an AI estimate) for today. */
+	public LoggedFood logCustomFood(String description, Nutrients nutrients, boolean estimated) {
+		return tracker.logCustom(today(), description, nutrients, estimated);
+	}
+
+	public List<LoggedFood> getTodaysFood() {
+		return tracker.entriesOn(today());
+	}
+
+	public LoggedFood deleteLoggedFood(long id) {
+		return tracker.delete(id);
+	}
+
+	/** Today's totals compared with the profile's daily goals. */
+	public DailyProgress getTodaysProgress() {
+		return tracker.progress(today());
+	}
+
 	// ---------------- Unit conversion and scaling (F10) ----------------
 
 	/** Converts an amount between two units of the same kind, e.g. 2 cup to ml. */
@@ -266,7 +297,7 @@ public class MealtonFacade {
 
 	/**
 	 * Creates the chat agent with the given LLM. It can use the pantry, shopping
-	 * list, recipe and profile tools.
+	 * list, recipe, profile and food diary tools.
 	 */
 	public void enableAgent(LLMClient llm) {
 		ToolRegistry registry = new ToolRegistry();
@@ -276,6 +307,7 @@ public class MealtonFacade {
 		registry.register(new RecipeTool(recipes));
 		registry.register(new MealIdeasTool(advisor));
 		registry.register(new ProfileTool(profile));
+		registry.register(new NutritionTool(tracker, this::today));
 		this.agent = new MealtonAgent(llm, registry, memory);
 	}
 
