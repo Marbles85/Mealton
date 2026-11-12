@@ -24,6 +24,7 @@ import javafx.scene.layout.Region;
 public class MainWindow extends BorderPane {
 	public static final String PANTRY_PAGE = "Pantry & List";
 	public static final String CHAT_PAGE = "Mealton Chat";
+	public static final String PROFILE_PAGE = "Profile";
 
 	private final Map<String, Node> pages = new LinkedHashMap<>();
 
@@ -32,6 +33,7 @@ public class MainWindow extends BorderPane {
 		pages.put(PANTRY_PAGE, pantryView);
 		// after the AI agent uses a tool, the pantry/shopping page reloads what changed
 		pages.put(CHAT_PAGE, new ChatView(facade, pantryView::refreshAll));
+		pages.put(PROFILE_PAGE, new ProfileView(facade));
 
 		Label title = new Label("Mealton");
 		title.setStyle("-fx-font-size: 22px; -fx-font-weight: bold;");
@@ -43,7 +45,7 @@ public class MainWindow extends BorderPane {
 			b.setOnAction(e -> showPage(name));
 			nav.getChildren().add(b);
 		}
-		for (String planned : List.of("Calendar", "Recipes", "Profile")) {
+		for (String planned : List.of("Calendar", "Recipes")) {
 			Button b = new Button(planned);
 			b.setDisable(true);
 			b.setTooltip(new Tooltip("Coming soon"));
