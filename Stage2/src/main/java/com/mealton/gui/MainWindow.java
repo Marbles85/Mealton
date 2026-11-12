@@ -24,6 +24,7 @@ public class MainWindow extends BorderPane {
 	public static final String CHAT_PAGE = "Mealton Chat";
 	public static final String RECIPES_PAGE = "Recipes";
 	public static final String MEAL_PLAN_PAGE = "Meal Plan";
+	public static final String FOOD_DIARY_PAGE = "Food Diary";
 	public static final String PROFILE_PAGE = "Profile";
 
 	private final Map<String, Node> pages = new LinkedHashMap<>();
@@ -32,16 +33,19 @@ public class MainWindow extends BorderPane {
 		PantryShoppingView pantryView = new PantryShoppingView(facade);
 		RecipeBrowserView recipesView = new RecipeBrowserView(facade, pantryView::refreshAll);
 		MealPlanView planView = new MealPlanView(facade, pantryView::refreshAll);
+		FoodDiaryView diaryView = new FoodDiaryView(facade);
 		pages.put(PANTRY_PAGE, pantryView);
-		// after the AI agent uses a tool, the pantry/shopping and recipe pages reload
-		// what changed
+		// after the AI agent uses a tool, the pantry/shopping, recipe, plan and diary
+		// pages reload what changed
 		pages.put(CHAT_PAGE, new ChatView(facade, () -> {
 			pantryView.refreshAll();
 			recipesView.refresh();
 			planView.refresh();
+			diaryView.refresh();
 		}));
 		pages.put(RECIPES_PAGE, recipesView);
 		pages.put(MEAL_PLAN_PAGE, planView);
+		pages.put(FOOD_DIARY_PAGE, diaryView);
 		pages.put(PROFILE_PAGE, new ProfileView(facade));
 
 		Label title = new Label("Mealton");
@@ -69,12 +73,14 @@ public class MainWindow extends BorderPane {
 	public void showPage(String name) {
 		Node page = pages.get(name);
 		if (page != null) {
-			// the recipe and plan pages depend on the pantry, recipes and profile, so
-			// reload them every time they are opened
+			// these pages depend on the pantry, recipes and profile, so reload them every
+			// time they are opened
 			if (page instanceof RecipeBrowserView browser) {
 				browser.refresh();
 			} else if (page instanceof MealPlanView plan) {
 				plan.refresh();
+			} else if (page instanceof FoodDiaryView diary) {
+				diary.refresh();
 			}
 			setCenter(page);
 		}
