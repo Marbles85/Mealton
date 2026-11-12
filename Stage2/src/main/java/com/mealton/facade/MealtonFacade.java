@@ -26,6 +26,8 @@ import com.mealton.pantry.FreshnessScheduler;
 import com.mealton.pantry.PantryInventory;
 import com.mealton.pantry.PantryItem;
 import com.mealton.pantry.PantryObserver;
+import com.mealton.plan.CalendarService;
+import com.mealton.plan.MealEntry;
 import com.mealton.plan.PlanService;
 import com.mealton.plan.WeekPlan;
 import com.mealton.profile.ProfileService;
@@ -59,6 +61,7 @@ public class MealtonFacade {
 	private final RecipeAdvisor advisor;
 	private final ProfileService profile = new ProfileService();
 	private final PlanService planner;
+	private final CalendarService calendar;
 	private final MacroTracker tracker = new MacroTracker(profile::get);
 	private final AgentMemory memory = new AgentMemory();
 	private MealtonAgent agent; // null until enableAgent() is called
@@ -74,6 +77,7 @@ public class MealtonFacade {
 		this.scheduler = new FreshnessScheduler(pantry);
 		this.advisor = new RecipeAdvisor(recipes, pantry, shopping, profile);
 		this.planner = new PlanService(recipes, advisor, profile);
+		this.calendar = new CalendarService(planner, recipes, advisor, profile);
 		// whenever the profile changes, the agent's memory learns it too (so Claude
 		// always knows the diet)
 		profile.addListener(this::syncProfileToMemory);
@@ -392,6 +396,47 @@ public class MealtonFacade {
 	 */
 	public List<RecipeIngredient> addPlanToShoppingList() {
 		return planner.addMissingToShoppingList();
+	}
+
+	// ---------------- Meal calendar (F03): the plan, loaded onto real dates
+	// ----------------
+
+	/**
+	 * Loads the current weekly plan onto the Monday-to-Sunday week that contains
+	 * this date. @return meals loaded
+	 */
+	public int loadPlanOnCalendar(LocalDate anyDateInWeek) {
+		return calendar.loadPlan(anyDateInWeek);
+	}
+
+	public List<MealEntry> getCalendarMeals(LocalDate date) {
+		return calendar.mealsOn(date);
+	}
+
+	public List<String> getCalendarWarnings(LocalDate date) {
+		return calendar.warningsOn(date);
+	}
+
+	public void setCalendarMeal(LocalDate date, String meal, long recipeId) {
+		calendar.set(date, meal, recipeId);
+	}
+
+	public void clearCalendarMeal(LocalDate date, String meal) {
+		calendar.clear(date, meal);
+	}
+
+	/** Empties one calendar week. @return how many meals were removed */
+	public int clearCalendarWeek(LocalDate anyDateInWeek) {
+		return calendar.clearWeek(anyDateInWeek);
+	}
+
+	public int getCalendarMealsInWeek(LocalDate anyDateInWeek) {
+		return calendar.mealsInWeek(anyDateInWeek);
+	}
+
+	/** Puts what a calendar week is missing on the shopping list. */
+	public List<RecipeIngredient> addCalendarWeekToShoppingList(LocalDate anyDateInWeek) {
+		return calendar.addWeekToShoppingList(anyDateInWeek);
 	}
 
 	// ---------------- Macro tracker / food diary (F04) ----------------
