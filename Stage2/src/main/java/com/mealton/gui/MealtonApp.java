@@ -3,6 +3,7 @@ package com.mealton.gui;
 import com.mealton.config.AppConfig;
 import com.mealton.facade.MealtonFacade;
 import com.mealton.llm.LLMClientFactory;
+import com.mealton.recipe.StarterRecipes;
 
 import javafx.application.Application;
 import javafx.geometry.Rectangle2D;
@@ -19,6 +20,7 @@ public class MealtonApp extends Application {
 	@Override
 	public void start(Stage stage) {
 		MealtonFacade facade = new MealtonFacade(); // same facade the CLI uses
+		StarterRecipes.loadInto(facade); // ready-made recipes so the Recipes page is never empty
 
 		// Turn on the AI assistant from the local .env (real Claude or the offline
 		// mock).
