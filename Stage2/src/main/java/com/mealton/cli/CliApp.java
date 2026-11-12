@@ -15,6 +15,8 @@ import java.util.stream.Collectors;
 
 import com.mealton.agent.AgentReply;
 import com.mealton.facade.MealtonFacade;
+import com.mealton.nutrition.LoggedFood;
+import com.mealton.nutrition.Nutrients;
 import com.mealton.pantry.PantryItem;
 import com.mealton.pantry.PantryObserver;
 import com.mealton.recipe.Recipe;
@@ -75,6 +77,7 @@ public final class CliApp implements PantryObserver {
 			case "shop" -> shop(t.subList(1, t.size()));
 			case "recipe" -> recipe(t.subList(1, t.size()));
 			case "profile" -> profile(t.subList(1, t.size()));
+			case "food" -> food(t.subList(1, t.size()));
 			case "chat" -> chat(line);
 			case "convert" -> convert(t.subList(1, t.size()));
 			case "scale" -> scale(t.subList(1, t.size()));
@@ -365,6 +368,50 @@ public final class CliApp implements PantryObserver {
 		}
 	}
 
+	// ---------------- food diary / macro tracker (F04) ----------------
+
+	private void food(List<String> a) {
+		if (a.isEmpty() || a.get(0).equalsIgnoreCase("today")) {
+			out.println(facade.getTodaysProgress().summary());
+			return;
+		}
+		switch (a.get(0).toLowerCase()) {
+		case "log" -> {
+			if (a.size() < 2 || a.size() > 4) {
+				throw new IllegalArgumentException("Usage: food log <food> [amount] [unit]   e.g. food log egg 2");
+			}
+			double amount = a.size() > 2 ? Formats.parseQuantity(a.get(2)) : 1;
+			String unit = a.size() > 3 ? a.get(3) : "";
+			LoggedFood entry = facade.logFood(a.get(1), amount, unit);
+			out.println("Logged " + entry);
+			out.println(facade.getTodaysProgress().summary());
+		}
+		case "custom" -> {
+			if (a.size() != 6) {
+				throw new IllegalArgumentException(
+						"Usage: food custom \"<what you ate>\" <calories> <protein g> <carbs g> <fat g>");
+			}
+			Nutrients n = new Nutrients(Formats.parseQuantity(a.get(2)), Formats.parseQuantity(a.get(3)),
+					Formats.parseQuantity(a.get(4)), Formats.parseQuantity(a.get(5)));
+			LoggedFood entry = facade.logCustomFood(a.get(1), n, true);
+			out.println("Logged " + entry);
+			out.println(facade.getTodaysProgress().summary());
+		}
+		case "list" -> {
+			List<LoggedFood> entries = facade.getTodaysFood();
+			if (entries.isEmpty()) {
+				out.println("Nothing has been logged today.");
+			}
+			entries.forEach(e -> out.println("  " + e));
+		}
+		case "delete" -> {
+			requireSize(a, 2, "food delete <id>");
+			out.println("Deleted " + facade.deleteLoggedFood(parseId(a.get(1))));
+		}
+		default -> throw new IllegalArgumentException("Unknown food command '" + a.get(0) + "'. Type 'help'.");
+		}
+	}
+
 	// ---------------- unit conversion and scaling (F10) ----------------
 
 	private void convert(List<String> args) {
@@ -551,6 +598,7 @@ public final class CliApp implements PantryObserver {
 				  recipe missing <id>              (put the missing ingredients on the shopping list)
 				  profile [show] | name <name> | diet <diet> | calories <kcal> | macros <p> <c> <f> | reset
 				  profile allergy add|remove <food>   (recipe suggestions then warn about conflicts)
+				  food log <food> [amount] [unit] | custom "<what>" <kcal> <p> <c> <f> | list | delete <id> | today
 				  convert <amount> <from> <to>       (units: g kg oz lb ml l tsp tbsp cup)
 				  scale <amount> <from servings> <to servings>
 				  chat                 (talk to the AI assistant; 'back' to leave)
