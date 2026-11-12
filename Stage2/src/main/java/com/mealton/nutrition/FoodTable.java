@@ -68,7 +68,7 @@ public final class FoodTable {
 		food("broccoli", 34, 2.8, 7, 0.4, 0, 0);
 		food("spinach", 23, 2.9, 3.6, 0.4, 0, 0);
 		food("lettuce", 15, 1.4, 2.9, 0.2, 0, 0);
-		food("cucumber", 15, 0.7, 3.6, 0.1, 0, 0);
+		food("cucumber", 15, 0.7, 3.6, 0.1, 300, 0);
 		food("bell pepper", 31, 1, 6, 0.3, 120, 0);
 		food("mushroom", 22, 3.1, 3.3, 0.3, 0, 0);
 		food("garlic", 149, 6.4, 33, 0.5, 3, 0);
@@ -82,13 +82,15 @@ public final class FoodTable {
 		// beans, nuts, fats, extras
 		food("black beans", 132, 8.9, 24, 0.5, 0, 0);
 		food("chickpeas", 164, 8.9, 27, 2.6, 0, 0);
-		food("lentils", 116, 9, 20, 0.4, 0, 0);
+		food("lentils", 352, 24.6, 63.4, 1.1, 0, 0); // dry weight, as recipes list them
 		food("peanut butter", 588, 25, 20, 50, 0, 1.08);
 		food("almonds", 579, 21, 22, 50, 0, 0.6);
 		food("olive oil", 884, 0, 0, 100, 0, 0.92);
 		food("vegetable oil", 884, 0, 0, 100, 0, 0.92);
 		food("honey", 304, 0.3, 82, 0, 0, 1.42);
 		food("chocolate", 546, 5, 60, 31, 0, 0);
+		food("salt", 0, 0, 0, 0, 0, 1.2);
+		food("soy sauce", 53, 8.1, 4.9, 0.6, 0, 1.15);
 		// drinks
 		food("orange juice", 45, 0.7, 10, 0.2, 0, 1.04);
 		food("water", 0, 0, 0, 0, 0, 1);
