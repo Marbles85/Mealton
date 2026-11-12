@@ -19,6 +19,7 @@ import com.mealton.nutrition.LoggedFood;
 import com.mealton.nutrition.Nutrients;
 import com.mealton.pantry.PantryItem;
 import com.mealton.pantry.PantryObserver;
+import com.mealton.plan.MealEntry;
 import com.mealton.recipe.Recipe;
 import com.mealton.recipe.RecipeIngredient;
 import com.mealton.recipe.RecipeMatch;
@@ -79,6 +80,7 @@ public final class CliApp implements PantryObserver {
 			case "profile" -> profile(t.subList(1, t.size()));
 			case "food" -> food(t.subList(1, t.size()));
 			case "plan" -> plan(t.subList(1, t.size()));
+			case "calendar" -> calendar(t.subList(1, t.size()));
 			case "chat" -> chat(line);
 			case "convert" -> convert(t.subList(1, t.size()));
 			case "scale" -> scale(t.subList(1, t.size()));
@@ -517,6 +519,83 @@ public final class CliApp implements PantryObserver {
 		}
 	}
 
+	// ---------------- meal calendar (F03) ----------------
+
+	private void calendar(List<String> a) {
+		if (a.isEmpty()) {
+			throw new IllegalArgumentException("Usage: calendar load|week|day|set|clear|shop  (type 'help')");
+		}
+		switch (a.get(0).toLowerCase()) {
+		case "load" -> {
+			if (a.size() > 2) {
+				throw new IllegalArgumentException("Usage: calendar load [yyyy-mm-dd]");
+			}
+			LocalDate date = a.size() == 2 ? LocalDate.parse(a.get(1)) : facade.today();
+			int loaded = facade.loadPlanOnCalendar(date);
+			out.println("Loaded " + loaded + " meal(s) onto the week of "
+					+ com.mealton.plan.CalendarService.weekStart(date) + ".");
+		}
+		case "week" -> {
+			if (a.size() > 2) {
+				throw new IllegalArgumentException("Usage: calendar week [yyyy-mm-dd]");
+			}
+			LocalDate monday = com.mealton.plan.CalendarService
+					.weekStart(a.size() == 2 ? LocalDate.parse(a.get(1)) : facade.today());
+			for (int i = 0; i < 7; i++) {
+				printCalendarDay(monday.plusDays(i));
+			}
+		}
+		case "day" -> {
+			requireSize(a, 2, "calendar day <yyyy-mm-dd>");
+			LocalDate date = LocalDate.parse(a.get(1));
+			printCalendarDay(date);
+			facade.getCalendarWarnings(date).forEach(w -> out.println("    WARNING: " + w));
+		}
+		case "set" -> {
+			requireSize(a, 4, "calendar set <yyyy-mm-dd> <breakfast|lunch|dinner> <recipe id>");
+			LocalDate date = LocalDate.parse(a.get(1));
+			facade.setCalendarMeal(date, a.get(2), parseId(a.get(3)));
+			printCalendarDay(date);
+		}
+		case "clear" -> {
+			if (a.size() == 3 && a.get(1).equalsIgnoreCase("week")) {
+				out.println(
+						"Removed " + facade.clearCalendarWeek(LocalDate.parse(a.get(2))) + " meal(s) from that week.");
+			} else {
+				requireSize(a, 3, "calendar clear <yyyy-mm-dd> <meal>   or   calendar clear week <yyyy-mm-dd>");
+				LocalDate date = LocalDate.parse(a.get(1));
+				facade.clearCalendarMeal(date, a.get(2));
+				printCalendarDay(date);
+			}
+		}
+		case "shop" -> {
+			if (a.size() > 2) {
+				throw new IllegalArgumentException("Usage: calendar shop [yyyy-mm-dd]");
+			}
+			List<RecipeIngredient> added = facade
+					.addCalendarWeekToShoppingList(a.size() == 2 ? LocalDate.parse(a.get(1)) : facade.today());
+			if (added.isEmpty()) {
+				out.println("Nothing to add: the pantry and shopping list already cover that week.");
+			} else {
+				out.println("Added to the shopping list:");
+				added.forEach(i -> out.println("  + " + i));
+			}
+		}
+		default -> throw new IllegalArgumentException("Unknown calendar command '" + a.get(0) + "'. Type 'help'.");
+		}
+	}
+
+	private void printCalendarDay(LocalDate date) {
+		List<MealEntry> meals = facade.getCalendarMeals(date);
+		String day = date + " "
+				+ date.getDayOfWeek().getDisplayName(java.time.format.TextStyle.SHORT, java.util.Locale.ENGLISH);
+		if (meals.isEmpty()) {
+			out.println("  " + day + ": nothing planned");
+			return;
+		}
+		out.println("  " + day + ": " + meals.stream().map(MealEntry::describe).collect(Collectors.joining("; ")));
+	}
+
 	// ---------------- unit conversion and scaling (F10) ----------------
 
 	private void convert(List<String> args) {
@@ -690,31 +769,34 @@ public final class CliApp implements PantryObserver {
 	}
 
 	private void help() {
-		out.println("""
-				Commands:
-				  pantry add <name> <qty> [unit] [--expires yyyy-mm-dd] [--category c]
-				  pantry list | expiring | check | remove <id...>
-				  shop add <name> [qty] [unit] [--category c]
-				  shop list | check <id...> | delete <id...> | clear-checked | undo | redo
-				  recipe add "<title>" <servings> "<ing1; ing2; ...>" ["<step1|step2>"]
-				  recipe list | top | show <id> | rate <id> <1-5> | scale <id> <servings> | delete <id>
-				  recipe now [best|expiring]       (Can make now: nothing missing)
-				  recipe almost                    (Almost there: only a few ingredients missing)
-				  recipe why <id>                  (the AI says why a recipe suits you)
-				  recipe save <id> | unsave <id> | mine   (My Recipes: the Save heart)
-				  recipe suggest [best|expiring]   (rank your recipes against your pantry)
-				  recipe check <id>                (what you have and what is missing)
-				  recipe missing <id>              (put the missing ingredients on the shopping list)
-				  profile [show] | name <name> | diet <diet> | calories <kcal> | macros <p> <c> <f> | reset
-				  profile allergy add|remove <food>   (recipe suggestions then warn about conflicts)
-				  food log <food> [amount] [unit] | custom "<what>" <kcal> <p> <c> <f> | list | delete <id> | today
-				  plan generate [variety|pantry] [dinner|lunch,dinner|all]   (plan the week from your recipes)
-				  plan [show] | set <day> <meal> <recipe id> | clear <day> <meal> | clear all | check | shop
-				  convert <amount> <from> <to>       (units: g kg oz lb ml l tsp tbsp cup)
-				  scale <amount> <from servings> <to servings>
-				  chat                 (talk to the AI assistant; 'back' to leave)
-				  chat <message>       (send one message to the AI assistant)
-				  help | exit
-				Tip: use "double quotes" for names with spaces.""");
+		out.println(
+				"""
+						Commands:
+						  pantry add <name> <qty> [unit] [--expires yyyy-mm-dd] [--category c]
+						  pantry list | expiring | check | remove <id...>
+						  shop add <name> [qty] [unit] [--category c]
+						  shop list | check <id...> | delete <id...> | clear-checked | undo | redo
+						  recipe add "<title>" <servings> "<ing1; ing2; ...>" ["<step1|step2>"]
+						  recipe list | top | show <id> | rate <id> <1-5> | scale <id> <servings> | delete <id>
+						  recipe now [best|expiring]       (Can make now: nothing missing)
+						  recipe almost                    (Almost there: only a few ingredients missing)
+						  recipe why <id>                  (the AI says why a recipe suits you)
+						  recipe save <id> | unsave <id> | mine   (My Recipes: the Save heart)
+						  recipe suggest [best|expiring]   (rank your recipes against your pantry)
+						  recipe check <id>                (what you have and what is missing)
+						  recipe missing <id>              (put the missing ingredients on the shopping list)
+						  profile [show] | name <name> | diet <diet> | calories <kcal> | macros <p> <c> <f> | reset
+						  profile allergy add|remove <food>   (recipe suggestions then warn about conflicts)
+						  food log <food> [amount] [unit] | custom "<what>" <kcal> <p> <c> <f> | list | delete <id> | today
+						  plan generate [variety|pantry] [dinner|lunch,dinner|all]   (plan the week from your recipes)
+						  plan [show] | set <day> <meal> <recipe id> | clear <day> <meal> | clear all | check | shop
+						  calendar load [date]             (put the plan on that date's Monday-to-Sunday week)
+						  calendar week [date] | day <date> | set <date> <meal> <recipe id> | clear <date> <meal> | clear week <date> | shop [date]
+						  convert <amount> <from> <to>       (units: g kg oz lb ml l tsp tbsp cup)
+						  scale <amount> <from servings> <to servings>
+						  chat                 (talk to the AI assistant; 'back' to leave)
+						  chat <message>       (send one message to the AI assistant)
+						  help | exit
+						Tip: use "double quotes" for names with spaces.""");
 	}
 }
