@@ -75,6 +75,11 @@ public class MacroTracker {
 		return result;
 	}
 
+	/** Every entry on every day, oldest first (used when saving). */
+	public synchronized List<LoggedFood> allEntries() {
+		return new ArrayList<>(entries);
+	}
+
 	/** Removes a logged entry, for example one that was logged by mistake. */
 	public synchronized LoggedFood delete(long id) {
 		for (int i = 0; i < entries.size(); i++) {
