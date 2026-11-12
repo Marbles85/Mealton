@@ -1,17 +1,21 @@
 package com.mealton.gui;
 
+import java.util.EnumSet;
 import java.util.List;
-import java.util.function.Function;
+import java.util.Set;
+import java.util.function.BiFunction;
 import java.util.stream.Collectors;
 
 import com.mealton.facade.MealtonFacade;
 import com.mealton.recipe.Recipe;
 import com.mealton.recipe.RecipeIngredient;
 import com.mealton.recipe.RecipeMatch;
+import com.mealton.recipe.RecipeTag;
 
 import javafx.concurrent.Task;
 import javafx.geometry.Insets;
 import javafx.scene.control.Button;
+import javafx.scene.control.CheckBox;
 import javafx.scene.control.ComboBox;
 import javafx.scene.control.Label;
 import javafx.scene.control.ListCell;
@@ -20,6 +24,7 @@ import javafx.scene.control.Tab;
 import javafx.scene.control.TabPane;
 import javafx.scene.control.TextArea;
 import javafx.scene.layout.BorderPane;
+import javafx.scene.layout.FlowPane;
 import javafx.scene.layout.HBox;
 import javafx.scene.layout.Priority;
 import javafx.scene.layout.VBox;
@@ -34,7 +39,8 @@ import javafx.scene.layout.VBox;
  * <li><b>My Recipes</b>: recipes you made plus the ones you saved with the Save
  * button (F13)</li>
  * </ul>
- * The ranking is plain code; the AI only writes the one-line "Why this one?"
+ * The first two tabs can be filtered with tag checkboxes (F09). The ranking and
+ * the tags are plain code; the AI only writes the one-line "Why this one?"
  * reason.
  */
 public class RecipeBrowserView extends BorderPane {
@@ -49,7 +55,7 @@ public class RecipeBrowserView extends BorderPane {
 		canMakeNow = new MatchPane(facade, facade::canMakeNow, true, false,
 				"Nothing can be cooked with your pantry right now. Check the 'Almost there' tab for recipes that need a few more ingredients.",
 				onDataChanged, this::refresh);
-		almostThere = new MatchPane(facade, priority -> facade.almostThere(), false, true,
+		almostThere = new MatchPane(facade, (priority, tags) -> facade.almostThere(tags), false, true,
 				"No recipes are within " + MealtonFacade.ALMOST_THERE_LIMIT
 						+ " ingredients of being cookable yet. Add more food to your pantry to see some here.",
 				onDataChanged, this::refresh);
@@ -78,11 +84,14 @@ public class RecipeBrowserView extends BorderPane {
 	}
 
 	/**
-	 * One list of recipe matches with details, a Save button and an AI "why" line.
+	 * One list of recipe matches with details, tag filters, a Save button and an AI
+	 * "why" line.
 	 */
 	private static final class MatchPane extends BorderPane {
 		private final MealtonFacade facade;
-		private final Function<String, List<RecipeMatch>> source;
+		private final BiFunction<String, Set<RecipeTag>, List<RecipeMatch>> source;
+		private final Set<RecipeTag> wantedTags = EnumSet.noneOf(RecipeTag.class);
+		private final FlowPane tagBar = new FlowPane(10, 4);
 		private final String emptyHelp;
 		private final Runnable onListChanged; // pantry/shopping pages refresh
 		private final Runnable onRecipesChanged; // all recipe tabs refresh
@@ -94,8 +103,9 @@ public class RecipeBrowserView extends BorderPane {
 		private final Button whyButton = new Button("Why this one? (AI)");
 		private final ComboBox<String> priority = new ComboBox<>();
 
-		MatchPane(MealtonFacade facade, Function<String, List<RecipeMatch>> source, boolean offerPriority,
-				boolean offerMissing, String emptyHelp, Runnable onListChanged, Runnable onRecipesChanged) {
+		MatchPane(MealtonFacade facade, BiFunction<String, Set<RecipeTag>, List<RecipeMatch>> source,
+				boolean offerPriority, boolean offerMissing, String emptyHelp, Runnable onListChanged,
+				Runnable onRecipesChanged) {
 			this.facade = facade;
 			this.source = source;
 			this.emptyHelp = emptyHelp;
@@ -122,6 +132,24 @@ public class RecipeBrowserView extends BorderPane {
 				why.setText("");
 				showSelected();
 			});
+
+			// tag filter row (F09): a recipe must have ALL the ticked tags
+			tagBar.getChildren().add(new Label("Only show:"));
+			for (RecipeTag tag : RecipeTag.values()) {
+				CheckBox box = new CheckBox(tag.label());
+				box.setOnAction(e -> {
+					if (box.isSelected()) {
+						wantedTags.add(tag);
+					} else {
+						wantedTags.remove(tag);
+					}
+					refresh();
+				});
+				tagBar.getChildren().add(box);
+			}
+			tagBar.setPadding(new Insets(0, 0, 8, 0));
+			setTop(tagBar);
+
 			VBox left = new VBox(8, list);
 			VBox.setVgrow(list, Priority.ALWAYS);
 			left.setPadding(new Insets(0, 12, 0, 0));
@@ -168,7 +196,8 @@ public class RecipeBrowserView extends BorderPane {
 		void refresh() {
 			Recipe previous = list.getSelectionModel().getSelectedItem() == null ? null
 					: list.getSelectionModel().getSelectedItem().recipe();
-			List<RecipeMatch> matches = source.apply(priority.getValue() == null ? "best" : priority.getValue());
+			List<RecipeMatch> matches = source.apply(priority.getValue() == null ? "best" : priority.getValue(),
+					EnumSet.copyOf(wantedTags));
 			list.getItems().setAll(matches);
 			if (previous != null) {
 				for (RecipeMatch m : matches) {
@@ -187,9 +216,11 @@ public class RecipeBrowserView extends BorderPane {
 				save.setDisable(true);
 				whyButton.setDisable(true);
 				if (list.getItems().isEmpty()) {
-					detail.setText(facade.getPantryItems().isEmpty()
-							? "Your pantry is empty. Add food on the 'Pantry & List' page and recipes you can make will show up here."
-							: emptyHelp);
+					detail.setText(!wantedTags.isEmpty()
+							? "No recipes here have all of the ticked tags. Untick one to see more."
+							: facade.getPantryItems().isEmpty()
+									? "Your pantry is empty. Add food on the 'Pantry & List' page and recipes you can make will show up here."
+									: emptyHelp);
 				} else {
 					detail.setText("Select a recipe on the left to see it.");
 				}
@@ -199,7 +230,11 @@ public class RecipeBrowserView extends BorderPane {
 			save.setText(inMine ? "In My Recipes" : "Save to My Recipes");
 			save.setDisable(inMine);
 			whyButton.setDisable(false);
-			detail.setText(RecipesView.describe(m.recipe()) + "\n\n" + RecipesView.describeMatch(m));
+			Set<RecipeTag> tags = RecipeTag.tagsOf(m);
+			String tagText = tags.isEmpty() ? "none"
+					: tags.stream().map(RecipeTag::label).collect(Collectors.joining(", "));
+			detail.setText(
+					RecipesView.describe(m.recipe()) + "\n\nTags: " + tagText + "\n\n" + RecipesView.describeMatch(m));
 		}
 
 		private RecipeMatch selectedMatch() {
