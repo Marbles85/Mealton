@@ -5,6 +5,7 @@ import java.util.Optional;
 import java.util.stream.Collectors;
 
 import com.mealton.facade.MealtonFacade;
+import com.mealton.nutrition.RecipeNutrition;
 import com.mealton.recipe.Recipe;
 import com.mealton.recipe.RecipeIngredient;
 import com.mealton.recipe.RecipeMatch;
@@ -253,7 +254,8 @@ public class RecipesView extends BorderPane {
 
 	static String describe(Recipe r) {
 		StringBuilder sb = new StringBuilder(r.getTitle()).append(" (").append(r.getServings()).append(" servings, ")
-				.append(r.isRated() ? r.getRating() + "/5 stars" : "not rated").append(")\n\nIngredients:");
+				.append(r.isRated() ? r.getRating() + "/5 stars" : "not rated").append(")\n")
+				.append(RecipeNutrition.of(r).line()).append("\n\nIngredients:");
 		for (RecipeIngredient ingredient : r.getIngredients()) {
 			sb.append("\n  - ").append(ingredient);
 		}
