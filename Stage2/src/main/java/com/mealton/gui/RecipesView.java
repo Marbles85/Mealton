@@ -28,27 +28,30 @@ import javafx.scene.layout.Priority;
 import javafx.scene.layout.VBox;
 
 /**
- * The "Recipes" page (F13, F07, F08): your saved recipes with star ratings and
- * scaling, what you can cook with the pantry (with allergy and diet warnings),
- * and putting missing ingredients on the shopping list.
+ * The "My Recipes" tab (F13): the recipes you made plus the library recipes you
+ * saved with the Save heart, with star ratings, scaling, adding missing
+ * ingredients to the shopping list, and adding your own recipes (DIY). It is
+ * shown inside the {@link RecipeBrowserView}.
  */
 public class RecipesView extends BorderPane {
 	private final MealtonFacade facade;
 	private final Runnable onDataChanged; // lets the pantry/list page refresh after we change the list
+	private final Runnable onRecipesChanged; // lets the other recipe tabs refresh after My Recipes changes
 	private final ListView<Recipe> list = new ListView<>();
 	private final TextArea detail = new TextArea();
 	private final Label status = new Label();
 	private final ComboBox<Integer> stars = new ComboBox<>();
 	private final Spinner<Integer> servings = new Spinner<>(1, 100, 4);
-	private final ComboBox<String> priority = new ComboBox<>();
+	private final Button remove = new Button("Delete recipe");
 	private final TextField titleField = new TextField();
 	private final TextField servingsField = new TextField("2");
 	private final TextArea ingredientsArea = new TextArea();
 	private final TextField stepsField = new TextField();
 
-	public RecipesView(MealtonFacade facade, Runnable onDataChanged) {
+	public RecipesView(MealtonFacade facade, Runnable onDataChanged, Runnable onRecipesChanged) {
 		this.facade = facade;
 		this.onDataChanged = onDataChanged;
+		this.onRecipesChanged = onRecipesChanged;
 		setPadding(new Insets(12));
 
 		// left: the list of saved recipes
@@ -63,7 +66,7 @@ public class RecipesView extends BorderPane {
 			}
 		});
 		list.getSelectionModel().selectedItemProperty().addListener((obs, oldValue, newValue) -> showSelected());
-		Label listTitle = new Label("My recipes");
+		Label listTitle = new Label("My Recipes");
 		listTitle.setStyle("-fx-font-weight: bold;");
 		VBox left = new VBox(8, listTitle, list);
 		VBox.setVgrow(list, Priority.ALWAYS);
@@ -104,27 +107,12 @@ public class RecipesView extends BorderPane {
 					: "Added to the shopping list: " + joinIngredients(added) + ".");
 		}));
 
-		Button delete = new Button("Delete recipe");
-		delete.setOnAction(e -> attempt(this::deleteSelected));
+		remove.setOnAction(e -> attempt(this::removeSelected));
 
 		HBox actions = new HBox(8, stars, rate, servings, scale);
-		HBox actions2 = new HBox(8, missing, delete);
+		HBox actions2 = new HBox(8, missing, remove);
 
-		priority.getItems().addAll("best", "expiring");
-		priority.setValue("best");
-		Button suggest = new Button("What can I cook with my pantry?");
-		suggest.setOnAction(e -> attempt(() -> {
-			List<RecipeMatch> matches = facade.suggestRecipes(priority.getValue());
-			if (matches.isEmpty()) {
-				detail.setText("You have no saved recipes to compare with the pantry. Add one below.");
-			} else {
-				detail.setText(matches.stream().map(RecipesView::describeMatch).collect(Collectors.joining("\n\n")));
-			}
-			ok("Recipes ranked against your pantry (" + priority.getValue() + " first).");
-		}));
-		HBox suggestBar = new HBox(8, suggest, new Label("Show first:"), priority);
-
-		VBox centre = new VBox(8, detail, actions, actions2, suggestBar);
+		VBox centre = new VBox(8, detail, actions, actions2);
 		setCenter(centre);
 
 		// bottom: add a recipe (collapsed to save space)
@@ -156,7 +144,7 @@ public class RecipesView extends BorderPane {
 	 */
 	public void refresh() {
 		Recipe selected = list.getSelectionModel().getSelectedItem();
-		list.getItems().setAll(facade.getRecipes());
+		list.getItems().setAll(facade.getMyRecipes());
 		if (selected != null) {
 			selectById(selected.getId());
 		}
@@ -183,11 +171,14 @@ public class RecipesView extends BorderPane {
 	private void showSelected() {
 		Recipe selected = list.getSelectionModel().getSelectedItem();
 		if (selected == null) {
+			remove.setText("Delete recipe");
 			detail.setText(list.getItems().isEmpty()
-					? "You have no saved recipes yet. Open 'Add a recipe' below to save your first one."
-					: "Select a recipe on the left to see it, or press the pantry button to see what you can cook.");
+					? "My Recipes is empty. Save recipes you like with the Save button in 'Can make now' or 'Almost there', "
+							+ "or open 'Add a recipe' below to write your own."
+					: "Select a recipe on the left to see it.");
 			return;
 		}
+		remove.setText(selected.isLibrary() ? "Remove from My Recipes" : "Delete recipe");
 		try {
 			detail.setText(describe(facade.getRecipe(selected.getId())) + "\n\n"
 					+ describeMatch(facade.checkRecipe(selected.getId())));
@@ -212,21 +203,35 @@ public class RecipesView extends BorderPane {
 		stepsField.clear();
 		refresh();
 		selectById(saved.getId());
-		ok("Saved '" + saved.getTitle() + "'.");
+		onRecipesChanged.run();
+		ok("Saved '" + saved.getTitle() + "' to My Recipes.");
 	}
 
-	private void deleteSelected() {
+	/**
+	 * A library recipe is only taken out of My Recipes (it stays in the browser
+	 * tabs). A recipe you made yourself is deleted for good, after asking.
+	 */
+	private void removeSelected() {
 		Recipe selected = list.getSelectionModel().getSelectedItem();
 		if (selected == null) {
 			throw new IllegalArgumentException("Select a recipe on the left first.");
 		}
-		Alert confirm = new Alert(Alert.AlertType.CONFIRMATION, "Delete '" + selected.getTitle() + "'?", ButtonType.YES,
-				ButtonType.NO);
+		if (selected.isLibrary()) {
+			facade.removeFromMyRecipes(selected.getId());
+			list.getSelectionModel().clearSelection();
+			refresh();
+			onRecipesChanged.run();
+			ok("Removed '" + selected.getTitle() + "' from My Recipes.");
+			return;
+		}
+		Alert confirm = new Alert(Alert.AlertType.CONFIRMATION, "Delete '" + selected.getTitle() + "' for good?",
+				ButtonType.YES, ButtonType.NO);
 		Optional<ButtonType> answer = confirm.showAndWait();
 		if (answer.isPresent() && answer.get() == ButtonType.YES) {
 			facade.deleteRecipe(selected.getId());
 			list.getSelectionModel().clearSelection();
 			refresh();
+			onRecipesChanged.run();
 			ok("Deleted '" + selected.getTitle() + "'.");
 		}
 	}
@@ -246,7 +251,7 @@ public class RecipesView extends BorderPane {
 		status.setText(message);
 	}
 
-	private static String describe(Recipe r) {
+	static String describe(Recipe r) {
 		StringBuilder sb = new StringBuilder(r.getTitle()).append(" (").append(r.getServings()).append(" servings, ")
 				.append(r.isRated() ? r.getRating() + "/5 stars" : "not rated").append(")\n\nIngredients:");
 		for (RecipeIngredient ingredient : r.getIngredients()) {
@@ -262,7 +267,7 @@ public class RecipesView extends BorderPane {
 		return sb.toString();
 	}
 
-	private static String describeMatch(RecipeMatch m) {
+	static String describeMatch(RecipeMatch m) {
 		int total = m.available().size() + m.missing().size();
 		StringBuilder sb = new StringBuilder(
 				"#" + m.recipe().getId() + " " + m.recipe().getTitle() + ": " + (m.isCookable() ? "can be cooked now"
