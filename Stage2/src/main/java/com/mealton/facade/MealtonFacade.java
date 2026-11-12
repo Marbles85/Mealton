@@ -4,6 +4,7 @@ import java.time.Clock;
 import java.time.LocalDate;
 import java.util.Collection;
 import java.util.List;
+import java.util.Set;
 
 import com.mealton.agent.AgentMemory;
 import com.mealton.agent.AgentReply;
@@ -22,6 +23,7 @@ import com.mealton.nutrition.DailyProgress;
 import com.mealton.nutrition.LoggedFood;
 import com.mealton.nutrition.MacroTracker;
 import com.mealton.nutrition.Nutrients;
+import com.mealton.nutrition.RecipeNutrition;
 import com.mealton.pantry.FreshnessScheduler;
 import com.mealton.pantry.PantryInventory;
 import com.mealton.pantry.PantryItem;
@@ -29,6 +31,7 @@ import com.mealton.pantry.PantryObserver;
 import com.mealton.plan.CalendarService;
 import com.mealton.plan.MealEntry;
 import com.mealton.plan.PlanService;
+import com.mealton.plan.PrepPlanner;
 import com.mealton.plan.WeekPlan;
 import com.mealton.profile.ProfileService;
 import com.mealton.profile.UserProfile;
@@ -37,6 +40,7 @@ import com.mealton.recipe.RecipeAdvisor;
 import com.mealton.recipe.RecipeBook;
 import com.mealton.recipe.RecipeIngredient;
 import com.mealton.recipe.RecipeMatch;
+import com.mealton.recipe.RecipeTag;
 import com.mealton.repository.InMemoryPantryRepository;
 import com.mealton.shopping.ShoppingItem;
 import com.mealton.shopping.ShoppingService;
@@ -250,12 +254,60 @@ public class MealtonFacade {
 		return advisor.canMakeNow(priority);
 	}
 
+	/** Same, keeping only recipes that have ALL the given tags (F09). */
+	public List<RecipeMatch> canMakeNow(String priority, Set<RecipeTag> tags) {
+		return RecipeTag.filter(advisor.canMakeNow(priority), tags);
+	}
+
 	/**
 	 * The "Almost there" tab: recipes missing at most {@link #ALMOST_THERE_LIMIT}
 	 * ingredients.
 	 */
 	public List<RecipeMatch> almostThere() {
 		return advisor.almostThere(ALMOST_THERE_LIMIT);
+	}
+
+	/** Same, keeping only recipes that have ALL the given tags (F09). */
+	public List<RecipeMatch> almostThere(Set<RecipeTag> tags) {
+		return RecipeTag.filter(advisor.almostThere(ALMOST_THERE_LIMIT), tags);
+	}
+
+	/** The tags of a recipe right now, for example vegan or high-protein (F09). */
+	public Set<RecipeTag> tagsOf(long recipeId) {
+		return RecipeTag.tagsOf(advisor.check(recipeId));
+	}
+
+	// ---------------- Nutrition per recipe (F11) ----------------
+
+	/** An estimate of what a recipe contains, per serving and in total. */
+	public RecipeNutrition estimateNutrition(Recipe recipe) {
+		return RecipeNutrition.of(recipe);
+	}
+
+	public RecipeNutrition recipeNutrition(long recipeId) {
+		return RecipeNutrition.of(recipes.get(recipeId));
+	}
+
+	/**
+	 * Writes servings of a recipe into today's food diary, using the nutrition
+	 * estimate (marked as an estimate).
+	 *
+	 * @throws IllegalArgumentException if the amount is not positive or the recipe
+	 *                                  has no nutrition estimate
+	 */
+	public LoggedFood logRecipeServings(long recipeId, double servings) {
+		if (Double.isNaN(servings) || Double.isInfinite(servings) || servings <= 0) {
+			throw new IllegalArgumentException("The number of servings must be more than 0.");
+		}
+		Recipe recipe = recipes.get(recipeId);
+		RecipeNutrition nutrition = RecipeNutrition.of(recipe);
+		if (nutrition.counted().isEmpty()) {
+			throw new IllegalArgumentException("'" + recipe.getTitle() + "' has no nutrition estimate, "
+					+ "so it cannot be logged. Log it by hand with numbers instead.");
+		}
+		String what = recipe.getTitle() + " (" + com.mealton.util.Formats.number(servings)
+				+ (servings == 1 ? " serving)" : " servings)");
+		return tracker.logCustom(today(), what, nutrition.perServing().times(servings), true);
 	}
 
 	/**
@@ -396,6 +448,41 @@ public class MealtonFacade {
 	 */
 	public List<RecipeIngredient> addPlanToShoppingList() {
 		return planner.addMissingToShoppingList();
+	}
+
+	// ---------------- Prep-day planner (F05) ----------------
+
+	/**
+	 * One combined ingredient list for the current weekly plan, with shared
+	 * ingredients and batch cooking.
+	 */
+	public PrepPlanner.PrepPlan buildPrepPlan() {
+		return PrepPlanner.build(planner.current());
+	}
+
+	/**
+	 * A short prep-day schedule written by the AI from the prep plan. If the AI is
+	 * off or fails, the plain prep plan is returned instead.
+	 */
+	public String prepSchedule() {
+		PrepPlanner.PrepPlan prep = buildPrepPlan();
+		String plain = prep.describe();
+		if (llm == null) {
+			return plain;
+		}
+		try {
+			String prompt = "Write a short prep-day schedule (4 to 6 numbered steps) for the cook, using ONLY the "
+					+ "information below. Say what to wash and chop first, what to cook in batches, and what to "
+					+ "store. Do not add ingredients or recipes that are not listed.\n\n" + plain + "\nDiet: "
+					+ profile.get().diet().label();
+			String answer = llm.generate(prompt);
+			if (answer == null || answer.isBlank() || answer.equals(com.mealton.llm.MockLLMClient.DEFAULT_REPLY)) {
+				return plain; // the offline mock has nothing useful to say
+			}
+			return answer.trim();
+		} catch (RuntimeException e) {
+			return plain;
+		}
 	}
 
 	// ---------------- Meal calendar (F03): the plan, loaded onto real dates
