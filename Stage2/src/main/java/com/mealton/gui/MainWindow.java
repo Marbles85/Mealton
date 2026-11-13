@@ -20,9 +20,9 @@ import javafx.scene.layout.Region;
  * (Stage 1: MainWindow).
  */
 public class MainWindow extends BorderPane {
+	public static final String RECIPES_PAGE = "Recipes";
 	public static final String PANTRY_PAGE = "Pantry & List";
 	public static final String CHAT_PAGE = "Mealton Chat";
-	public static final String RECIPES_PAGE = "Recipes";
 	public static final String MEAL_PLAN_PAGE = "Meal Plan";
 	public static final String FOOD_DIARY_PAGE = "Food Diary";
 	public static final String PROFILE_PAGE = "Profile";
@@ -44,6 +44,9 @@ public class MainWindow extends BorderPane {
 		MealPlanView planView = new MealPlanView(facade, pantryView::refreshAll);
 		FoodDiaryView diaryView = new FoodDiaryView(facade);
 		profileView = new ProfileView(facade);
+
+		// the order here is the order of the buttons in the header
+		pages.put(RECIPES_PAGE, recipesView);
 		pages.put(PANTRY_PAGE, pantryView);
 		// after the AI agent uses a tool, the pantry/shopping, recipe, plan and diary
 		// pages reload what changed
@@ -53,7 +56,6 @@ public class MainWindow extends BorderPane {
 			planView.refresh();
 			diaryView.refresh();
 		}));
-		pages.put(RECIPES_PAGE, recipesView);
 		pages.put(MEAL_PLAN_PAGE, planView);
 		pages.put(FOOD_DIARY_PAGE, diaryView);
 		pages.put(PROFILE_PAGE, profileView);
@@ -82,7 +84,7 @@ public class MainWindow extends BorderPane {
 		header.setStyle("-fx-border-color: #dddddd; -fx-border-width: 0 0 1 0;");
 		setTop(header);
 
-		show(PANTRY_PAGE);
+		show(RECIPES_PAGE);
 	}
 
 	/**
