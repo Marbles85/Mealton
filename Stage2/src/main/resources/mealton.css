@@ -1,0 +1,188 @@
+/* Mealton look: soft background, one blue accent, rounded corners. */
+
+.root {
+    -fx-font-family: "Segoe UI", "Helvetica Neue", "Arial", sans-serif;
+    -fx-font-size: 13px;
+    -fx-background-color: #f8fafc;
+    -fx-text-base-color: #1f2937;
+    -fx-focus-color: #2563eb;
+    -fx-faint-focus-color: #2563eb22;
+    -fx-accent: #2563eb;
+}
+
+/* ---------- Buttons ---------- */
+.button {
+    -fx-background-color: #e8ecf1;
+    -fx-background-radius: 8;
+    -fx-text-fill: #1f2937;
+    -fx-padding: 7 14 7 14;
+    -fx-cursor: hand;
+}
+.button:hover {
+    -fx-background-color: #dbe2ea;
+}
+.button:pressed {
+    -fx-background-color: #cbd5e1;
+}
+.button:focused {
+    -fx-border-color: #93c5fd;
+    -fx-border-width: 2;
+    -fx-border-radius: 8;
+}
+.button:default {
+    -fx-background-color: #2563eb;
+    -fx-text-fill: white;
+}
+.button:default:hover {
+    -fx-background-color: #1d4ed8;
+}
+.button:disabled {
+    -fx-opacity: 0.5;
+}
+
+/* ---------- Text boxes, drop-downs, date pickers ---------- */
+.text-field, .password-field {
+    -fx-background-color: white;
+    -fx-background-radius: 8;
+    -fx-border-color: #cbd5e1;
+    -fx-border-radius: 8;
+    -fx-padding: 7 10 7 10;
+}
+.text-field:focused, .password-field:focused {
+    -fx-border-color: #2563eb;
+}
+.text-area {
+    -fx-background-color: white;
+    -fx-background-radius: 8;
+    -fx-border-color: #cbd5e1;
+    -fx-border-radius: 8;
+}
+.text-area .content {
+    -fx-background-color: white;
+    -fx-background-radius: 8;
+}
+.text-area:focused {
+    -fx-border-color: #2563eb;
+}
+.combo-box-base {
+    -fx-background-color: white;
+    -fx-background-radius: 8;
+    -fx-border-color: #cbd5e1;
+    -fx-border-radius: 8;
+}
+.combo-box-base:focused {
+    -fx-border-color: #2563eb;
+}
+.combo-box-base .arrow-button {
+    -fx-background-color: transparent;
+}
+
+/* ---------- Tabs ---------- */
+.tab-pane > .tab-header-area > .headers-region > .tab {
+    -fx-background-color: transparent;
+    -fx-background-insets: 0;
+    -fx-background-radius: 0;
+    -fx-padding: 6 14 6 14;
+    -fx-border-color: transparent transparent #e2e8f0 transparent;
+    -fx-border-width: 0 0 3 0;
+}
+.tab-pane > .tab-header-area > .headers-region > .tab:hover {
+    -fx-background-color: #eef2f7;
+}
+.tab-pane > .tab-header-area > .headers-region > .tab:selected {
+    -fx-border-color: transparent transparent #2563eb transparent;
+}
+.tab-pane > .tab-header-area > .headers-region > .tab:selected .tab-label {
+    -fx-text-fill: #2563eb;
+    -fx-font-weight: bold;
+}
+.tab-pane > .tab-header-background {
+    -fx-background-color: transparent;
+}
+.tab-pane > .tab-content-area {
+    -fx-background-color: transparent;
+}
+
+/* ---------- Lists and tables ---------- */
+.list-view, .table-view {
+    -fx-background-color: white;
+    -fx-background-radius: 8;
+    -fx-border-color: #e2e8f0;
+    -fx-border-radius: 8;
+}
+.list-cell:filled:hover, .table-row-cell:filled:hover {
+    -fx-background-color: #f1f5f9;
+}
+.list-cell:filled:selected, .table-row-cell:filled:selected {
+    -fx-background-color: #dbeafe;
+    -fx-text-fill: #1e3a8a;
+}
+.list-cell:filled:selected .text, .table-row-cell:filled:selected .table-cell {
+    -fx-fill: #1e3a8a;
+    -fx-text-fill: #1e3a8a;
+}
+.table-view .column-header-background {
+    -fx-background-color: #f1f5f9;
+}
+.table-view .column-header, .table-view .filler {
+    -fx-background-color: #f1f5f9;
+}
+
+/* ---------- Collapsible sections ---------- */
+.titled-pane > .title {
+    -fx-background-color: #eef2f7;
+    -fx-background-radius: 8;
+}
+.titled-pane > .content {
+    -fx-background-color: white;
+    -fx-border-color: #e2e8f0;
+    -fx-border-radius: 0 0 8 8;
+}
+
+/* ---------- Check boxes ---------- */
+.check-box .box {
+    -fx-background-color: white;
+    -fx-background-insets: 0;
+    -fx-background-radius: 4;
+    -fx-border-color: #94a3b8;
+    -fx-border-radius: 4;
+}
+.check-box:selected .box {
+    -fx-background-color: #2563eb;
+    -fx-border-color: #2563eb;
+}
+.check-box:selected .mark {
+    -fx-background-color: white;
+}
+
+/* ---------- Scroll bars: slim and quiet ---------- */
+.scroll-bar {
+    -fx-background-color: transparent;
+}
+.scroll-bar > .track, .scroll-bar > .track-background {
+    -fx-background-color: transparent;
+    -fx-border-color: transparent;
+}
+.scroll-bar > .thumb {
+    -fx-background-color: #cbd5e1;
+    -fx-background-radius: 8;
+    -fx-background-insets: 2;
+}
+.scroll-bar > .thumb:hover {
+    -fx-background-color: #94a3b8;
+}
+.scroll-bar > .increment-button, .scroll-bar > .decrement-button {
+    -fx-padding: 0;
+    -fx-background-color: transparent;
+}
+.scroll-bar > .increment-button > .increment-arrow,
+.scroll-bar > .decrement-button > .decrement-arrow {
+    -fx-padding: 0;
+    -fx-shape: " ";
+}
+.scroll-pane {
+    -fx-background-color: transparent;
+}
+.scroll-pane > .viewport {
+    -fx-background-color: transparent;
+}
