@@ -31,19 +31,50 @@ import com.mealton.util.Formats;
 /**
  * Command-line interface. It only talks to {@link MealtonFacade} (same entry
  * point as the GUI) and it is a {@link PantryObserver}, so expiry alerts are
- * printed as they happen. Interactive for now: state lives in memory until
- * persistence is added.
+ * printed as they happen. The user's data is saved by whoever starts it (see
+ * Main) through {@link #setAfterCommand(Runnable)}.
  */
 public final class CliApp implements PantryObserver {
 	private final MealtonFacade facade;
 	private final BufferedReader in;
 	private final PrintStream out;
+	private Runnable afterCommand = () -> {
+	};
+	private String username = "";
+	private boolean loggedOut;
 
 	public CliApp(MealtonFacade facade, InputStream in, PrintStream out) {
+		this(facade, new BufferedReader(new InputStreamReader(in)), out);
+	}
+
+	/**
+	 * Uses an existing reader, so the login prompt and this CLI can share one input
+	 * without losing lines.
+	 */
+	public CliApp(MealtonFacade facade, BufferedReader in, PrintStream out) {
 		this.facade = facade;
-		this.in = new BufferedReader(new InputStreamReader(in));
+		this.in = in;
 		this.out = out;
 		facade.attachPantryObserver(this);
+	}
+
+	/** Who is logged in (shown by 'whoami'). */
+	public void setUsername(String username) {
+		this.username = username == null ? "" : username;
+	}
+
+	/** Something to run after every command, for example saving the user's data. */
+	public void setAfterCommand(Runnable afterCommand) {
+		this.afterCommand = afterCommand == null ? () -> {
+		} : afterCommand;
+	}
+
+	/**
+	 * True when the user left with 'logout' (so the program should show the login
+	 * prompt again).
+	 */
+	public boolean loggedOut() {
+		return loggedOut;
 	}
 
 	/** Read-eval-print loop. */
@@ -57,6 +88,7 @@ public final class CliApp implements PantryObserver {
 				if (line == null || !execute(line)) {
 					break;
 				}
+				afterCommand.run();
 			}
 		} catch (IOException e) {
 			out.println("Input error: " + e.getMessage());
@@ -75,6 +107,13 @@ public final class CliApp implements PantryObserver {
 			case "exit", "quit" -> {
 				return false;
 			}
+			case "logout" -> {
+				loggedOut = true;
+				out.println("Logged out" + (username.isEmpty() ? "." : " (" + username + ")."));
+				return false;
+			}
+			case "whoami" ->
+				out.println(username.isEmpty() ? "Nobody is logged in." : "Logged in as " + username + ".");
 			case "pantry" -> pantry(t.subList(1, t.size()));
 			case "shop" -> shop(t.subList(1, t.size()));
 			case "recipe" -> recipe(t.subList(1, t.size()));
@@ -843,6 +882,7 @@ public final class CliApp implements PantryObserver {
 						  scale <amount> <from servings> <to servings>
 						  chat                 (talk to the AI assistant; 'back' to leave)
 						  chat <message>       (send one message to the AI assistant)
+						  whoami | logout                    (your data is saved automatically)
 						  help | exit
 						Tip: use "double quotes" for names with spaces.""");
 	}
