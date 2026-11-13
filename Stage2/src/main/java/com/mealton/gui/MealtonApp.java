@@ -23,6 +23,7 @@ public class MealtonApp extends Application {
 	private LLMClient llm; // null when the AI is off; one client is shared by every login
 	private Stage stage;
 	private Session session; // the logged-in user, or null on the login screen
+	private MainWindow window; // the main window of the logged-in user, or null on the login screen
 	private double width;
 	private double height;
 
@@ -53,14 +54,7 @@ public class MealtonApp extends Application {
 		stage.setX(screen.getMinX() + (screen.getWidth() - width) / 2);
 		stage.setY(screen.getMinY() + (screen.getHeight() - height) / 2);
 		// closing the window saves the user's data
-		stage.setOnCloseRequest(e -> {
-			if (session != null) {
-				String problem = session.save();
-				if (problem != null) {
-					System.out.println("Warning: " + problem);
-				}
-			}
-		});
+		stage.setOnCloseRequest(e -> saveNow());
 
 		showLogin();
 		stage.show();
@@ -68,6 +62,7 @@ public class MealtonApp extends Application {
 
 	private void showLogin() {
 		session = null;
+		window = null;
 		stage.setTitle("Mealton");
 		stage.setScene(new Scene(new LoginView(accounts, this::logIn), width, height));
 	}
@@ -78,8 +73,8 @@ public class MealtonApp extends Application {
 			new Alert(Alert.AlertType.WARNING, String.join("\n", session.warnings())).showAndWait();
 		}
 		stage.setTitle("Mealton - " + username);
-		stage.setScene(
-				new Scene(new MainWindow(session.facade(), username, this::saveNow, this::logOut), width, height));
+		window = new MainWindow(session.facade(), username, this::saveNow, this::logOut);
+		stage.setScene(new Scene(window, width, height));
 	}
 
 	private void logOut() {
@@ -94,6 +89,9 @@ public class MealtonApp extends Application {
 	private void saveNow() {
 		if (session == null) {
 			return;
+		}
+		if (window != null) {
+			window.commitPending(); // apply anything typed but not yet saved
 		}
 		String problem = session.save();
 		if (problem != null) {
