@@ -21,8 +21,9 @@ import javafx.scene.layout.VBox;
  * The "Profile" page (F01): name, diet, allergies and daily calorie and macro
  * goals. Diet and allergies are saved as soon as they are changed; name and
  * goals are saved with the Save button, or automatically when the user leaves
- * the page, logs out or closes the window. If the AI changes the profile in the
- * chat, this page updates itself.
+ * the page, logs out or closes the window. Changing the diet or allergies
+ * leaves any text typed in the name and goal boxes alone. If the AI changes the
+ * profile in the chat, this page updates itself.
  */
 public class ProfileView extends VBox {
 	private final MealtonFacade facade;
@@ -49,7 +50,7 @@ public class ProfileView extends VBox {
 		dietBox.getItems().addAll(Arrays.stream(Diet.values()).map(Diet::label).toList());
 		dietBox.setOnAction(e -> {
 			if (!loading && dietBox.getValue() != null) {
-				change(() -> facade.setDiet(dietBox.getValue()), "Diet saved.");
+				change(() -> facade.setDiet(dietBox.getValue()), "Diet saved.", false);
 			}
 		});
 
@@ -72,7 +73,7 @@ public class ProfileView extends VBox {
 		Button save = new Button("Save name and goals");
 		save.setOnAction(e -> saveDetails());
 		Button reset = new Button("Reset profile");
-		reset.setOnAction(e -> change(facade::resetProfile, "Profile cleared."));
+		reset.setOnAction(e -> change(facade::resetProfile, "Profile cleared.", true));
 
 		allergyList.setPrefHeight(120);
 		allergyField.setPromptText("Food to avoid, e.g. peanut");
@@ -108,12 +109,26 @@ public class ProfileView extends VBox {
 		loading = true;
 		try {
 			nameField.setText(p.name());
-			dietBox.setValue(p.diet().label());
-			allergyList.getItems().setAll(p.allergies());
 			caloriesField.setText(p.calorieGoal() == 0 ? "" : String.valueOf(p.calorieGoal()));
 			proteinField.setText(p.proteinGoal() == 0 ? "" : String.valueOf(p.proteinGoal()));
 			carbsField.setText(p.carbsGoal() == 0 ? "" : String.valueOf(p.carbsGoal()));
 			fatField.setText(p.fatGoal() == 0 ? "" : String.valueOf(p.fatGoal()));
+		} finally {
+			loading = false;
+		}
+		refreshLists();
+	}
+
+	/**
+	 * Refreshes only the diet box and the allergy list, so text typed in the other
+	 * boxes is kept.
+	 */
+	private void refreshLists() {
+		UserProfile p = facade.getProfile();
+		loading = true;
+		try {
+			dietBox.setValue(p.diet().label());
+			allergyList.getItems().setAll(p.allergies());
 		} finally {
 			loading = false;
 		}
@@ -128,7 +143,7 @@ public class ProfileView extends VBox {
 			facade.setCalorieGoal(calories);
 			facade.setMacroGoals(protein, carbs, fat);
 			facade.setProfileName(nameField.getText());
-		}, "Saved.");
+		}, "Saved.", true);
 	}
 
 	/**
@@ -158,7 +173,7 @@ public class ProfileView extends VBox {
 
 	private void addAllergy() {
 		String text = allergyField.getText();
-		change(() -> facade.addAllergy(text), "Added '" + (text == null ? "" : text.trim()) + "'.");
+		change(() -> facade.addAllergy(text), "Added '" + (text == null ? "" : text.trim()) + "'.", false);
 		if (status.getText().startsWith("Added")) {
 			allergyField.clear();
 		}
@@ -170,25 +185,37 @@ public class ProfileView extends VBox {
 			showError("Select an allergy in the list first.");
 			return;
 		}
-		change(() -> facade.removeAllergy(selected), "Removed '" + selected + "'.");
+		change(() -> facade.removeAllergy(selected), "Removed '" + selected + "'.", false);
 	}
 
 	/**
-	 * Runs a profile change, then reloads the page and shows the result or the
+	 * Runs a profile change, then refreshes the page and shows the result or the
 	 * problem.
+	 *
+	 * @param reloadAll true to refill every box from the profile (Save, Reset);
+	 *                  false to refresh only the diet and allergy lists, keeping
+	 *                  anything typed in the name and goal boxes
 	 */
-	private void change(Runnable action, String successMessage) {
+	private void change(Runnable action, String successMessage, boolean reloadAll) {
 		selfChange = true;
 		try {
 			action.run();
-			load();
+			refresh(reloadAll);
 			status.setStyle("-fx-text-fill: #2e7d32;");
 			status.setText(successMessage);
 		} catch (IllegalArgumentException e) {
-			load();
+			refresh(reloadAll);
 			showError(e.getMessage());
 		} finally {
 			selfChange = false;
+		}
+	}
+
+	private void refresh(boolean reloadAll) {
+		if (reloadAll) {
+			load();
+		} else {
+			refreshLists();
 		}
 	}
 
