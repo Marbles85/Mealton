@@ -29,7 +29,15 @@ public class MainWindow extends BorderPane {
 
 	private final Map<String, Node> pages = new LinkedHashMap<>();
 
-	public MainWindow(MealtonFacade facade) {
+	private final Runnable onSave;
+
+	/**
+	 * @param username the logged-in user (shown in the header)
+	 * @param onSave   saves the user's data; called whenever the user changes page
+	 * @param onLogout called when the user presses "Log out"
+	 */
+	public MainWindow(MealtonFacade facade, String username, Runnable onSave, Runnable onLogout) {
+		this.onSave = onSave;
 		PantryShoppingView pantryView = new PantryShoppingView(facade);
 		RecipeBrowserView recipesView = new RecipeBrowserView(facade, pantryView::refreshAll);
 		MealPlanView planView = new MealPlanView(facade, pantryView::refreshAll);
@@ -60,21 +68,32 @@ public class MainWindow extends BorderPane {
 		}
 		Region spacer = new Region();
 		HBox.setHgrow(spacer, Priority.ALWAYS);
-		HBox header = new HBox(20, title, nav, spacer);
+		Label signedIn = new Label("Signed in as " + username);
+		Button logout = new Button("Log out");
+		logout.setOnAction(e -> onLogout.run());
+		HBox header = new HBox(20, title, nav, spacer, signedIn, logout);
 		header.setAlignment(Pos.CENTER_LEFT);
 		header.setPadding(new Insets(10, 16, 10, 16));
 		header.setStyle("-fx-border-color: #dddddd; -fx-border-width: 0 0 1 0;");
 		setTop(header);
 
-		showPage(PANTRY_PAGE);
+		show(PANTRY_PAGE);
 	}
 
-	/** Shows the page with this name in the centre of the window. */
+	/**
+	 * Shows the page with this name in the centre of the window, and saves the
+	 * user's data first.
+	 */
 	public void showPage(String name) {
+		onSave.run(); // leaving a page is a good moment to save
+		show(name);
+	}
+
+	private void show(String name) {
 		Node page = pages.get(name);
 		if (page != null) {
-			// these pages depend on the pantry, recipes and profile, so reload them every
-			// time they are opened
+			// the recipe and plan pages depend on the pantry, recipes and profile, so
+			// reload them every time they are opened
 			if (page instanceof RecipeBrowserView browser) {
 				browser.refresh();
 			} else if (page instanceof MealPlanView plan) {
