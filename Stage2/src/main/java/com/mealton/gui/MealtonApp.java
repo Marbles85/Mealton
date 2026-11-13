@@ -1,5 +1,7 @@
 package com.mealton.gui;
 
+import java.net.URL;
+
 import com.mealton.account.AccountService;
 import com.mealton.account.Session;
 import com.mealton.config.AppConfig;
@@ -8,6 +10,7 @@ import com.mealton.llm.LLMClientFactory;
 
 import javafx.application.Application;
 import javafx.geometry.Rectangle2D;
+import javafx.scene.Parent;
 import javafx.scene.Scene;
 import javafx.scene.control.Alert;
 import javafx.stage.Screen;
@@ -60,11 +63,26 @@ public class MealtonApp extends Application {
 		stage.show();
 	}
 
+	/**
+	 * A scene with the Mealton stylesheet attached (the app still works, just
+	 * plainer, if it is missing).
+	 */
+	private Scene styledScene(Parent root) {
+		Scene scene = new Scene(root, width, height);
+		URL css = MealtonApp.class.getResource("/mealton.css");
+		if (css != null) {
+			scene.getStylesheets().add(css.toExternalForm());
+		} else {
+			System.out.println("Note: mealton.css not found, using the default look.");
+		}
+		return scene;
+	}
+
 	private void showLogin() {
 		session = null;
 		window = null;
 		stage.setTitle("Mealton");
-		stage.setScene(new Scene(new LoginView(accounts, this::logIn), width, height));
+		stage.setScene(styledScene(new LoginView(accounts, this::logIn)));
 	}
 
 	private void logIn(String username) {
@@ -74,7 +92,7 @@ public class MealtonApp extends Application {
 		}
 		stage.setTitle("Mealton - " + username);
 		window = new MainWindow(session.facade(), username, this::saveNow, this::logOut);
-		stage.setScene(new Scene(window, width, height));
+		stage.setScene(styledScene(window));
 	}
 
 	private void logOut() {
