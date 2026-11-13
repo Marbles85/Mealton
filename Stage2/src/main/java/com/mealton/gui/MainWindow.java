@@ -30,6 +30,7 @@ public class MainWindow extends BorderPane {
 	private final Map<String, Node> pages = new LinkedHashMap<>();
 
 	private final Runnable onSave;
+	private final ProfileView profileView;
 
 	/**
 	 * @param username the logged-in user (shown in the header)
@@ -42,6 +43,7 @@ public class MainWindow extends BorderPane {
 		RecipeBrowserView recipesView = new RecipeBrowserView(facade, pantryView::refreshAll);
 		MealPlanView planView = new MealPlanView(facade, pantryView::refreshAll);
 		FoodDiaryView diaryView = new FoodDiaryView(facade);
+		profileView = new ProfileView(facade);
 		pages.put(PANTRY_PAGE, pantryView);
 		// after the AI agent uses a tool, the pantry/shopping, recipe, plan and diary
 		// pages reload what changed
@@ -54,7 +56,7 @@ public class MainWindow extends BorderPane {
 		pages.put(RECIPES_PAGE, recipesView);
 		pages.put(MEAL_PLAN_PAGE, planView);
 		pages.put(FOOD_DIARY_PAGE, diaryView);
-		pages.put(PROFILE_PAGE, new ProfileView(facade));
+		pages.put(PROFILE_PAGE, profileView);
 
 		Label title = new Label("Mealton");
 		title.setStyle("-fx-font-size: 22px; -fx-font-weight: bold;");
@@ -70,7 +72,10 @@ public class MainWindow extends BorderPane {
 		HBox.setHgrow(spacer, Priority.ALWAYS);
 		Label signedIn = new Label("Signed in as " + username);
 		Button logout = new Button("Log out");
-		logout.setOnAction(e -> onLogout.run());
+		logout.setOnAction(e -> {
+			commitPending(); // keep anything typed on the Profile page
+			onLogout.run();
+		});
 		HBox header = new HBox(20, title, nav, spacer, signedIn, logout);
 		header.setAlignment(Pos.CENTER_LEFT);
 		header.setPadding(new Insets(10, 16, 10, 16));
@@ -81,10 +86,19 @@ public class MainWindow extends BorderPane {
 	}
 
 	/**
+	 * Applies anything typed but not yet saved (the Profile page's name and goals).
+	 * The app calls this before every save, including when the window is closed.
+	 */
+	public void commitPending() {
+		profileView.commitPending();
+	}
+
+	/**
 	 * Shows the page with this name in the centre of the window, and saves the
 	 * user's data first.
 	 */
 	public void showPage(String name) {
+		commitPending();
 		onSave.run(); // leaving a page is a good moment to save
 		show(name);
 	}
