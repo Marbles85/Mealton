@@ -20,7 +20,8 @@ import javafx.scene.layout.VBox;
 /**
  * The "Profile" page (F01): name, diet, allergies and daily calorie and macro
  * goals. Diet and allergies are saved as soon as they are changed; name and
- * goals are saved with the Save button. If the AI changes the profile in the
+ * goals are saved with the Save button, or automatically when the user leaves
+ * the page, logs out or closes the window. If the AI changes the profile in the
  * chat, this page updates itself.
  */
 public class ProfileView extends VBox {
@@ -128,6 +129,31 @@ public class ProfileView extends VBox {
 			facade.setMacroGoals(protein, carbs, fat);
 			facade.setProfileName(nameField.getText());
 		}, "Saved.");
+	}
+
+	/**
+	 * Applies whatever is typed in the name and goal boxes, as if Save had been
+	 * pressed. Called when the user leaves the page, logs out or closes the window,
+	 * so typed text is not lost. If a box holds something invalid (for example
+	 * letters in a number box), nothing is changed.
+	 */
+	public void commitPending() {
+		try {
+			int calories = whole(caloriesField.getText(), "Calories");
+			int protein = whole(proteinField.getText(), "Protein");
+			int carbs = whole(carbsField.getText(), "Carbs");
+			int fat = whole(fatField.getText(), "Fat");
+			selfChange = true;
+			try {
+				facade.setCalorieGoal(calories);
+				facade.setMacroGoals(protein, carbs, fat);
+				facade.setProfileName(nameField.getText());
+			} finally {
+				selfChange = false;
+			}
+		} catch (IllegalArgumentException e) {
+			// invalid text is left as it is; the user can fix it next time
+		}
 	}
 
 	private void addAllergy() {
