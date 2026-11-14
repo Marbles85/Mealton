@@ -34,3 +34,26 @@
 .rc-err { -fx-text-fill: #c62828; }
 .rc-why { -fx-background-color: #eef3ec; -fx-background-radius: 10; -fx-padding: 10 12 10 12; -fx-text-fill: #34493a; -fx-font-style: italic; }
 .rc-empty { -fx-text-fill: #6b7d70; -fx-font-size: 14px; }
+
+/* v2 additions */
+.rc-scroll { -fx-background-color: transparent; -fx-background-insets: 0; -fx-padding: 0; }
+.rc-scroll > .viewport { -fx-background-color: transparent; }
+.rc-text { -fx-text-fill: #25362b; }
+.rc-seg-bar { -fx-background-color: #eaf0e7; -fx-background-radius: 10; -fx-padding: 3; }
+.rc-seg { -fx-background-color: transparent; -fx-background-radius: 8; -fx-text-fill: #4a564e; -fx-padding: 5 12 5 12; -fx-cursor: hand; -fx-font-size: 12px; }
+.rc-seg-on, .rc-seg-on:hover { -fx-background-color: white; -fx-text-fill: #2f5a3a; -fx-font-weight: bold; -fx-effect: dropshadow(gaussian, rgba(31,42,34,0.12), 3, 0, 0, 1); }
+.rc-chip-dash { -fx-border-style: segments(4, 3); }
+.rc-chip-custom { -fx-background-color: #dcebd9; -fx-border-color: #4f7a5a; -fx-text-fill: #2f5a3a; }
+.rc-banner { -fx-background-color: #eef3ec; -fx-background-radius: 12; -fx-padding: 10 14 10 14; }
+.rc-heart-card { -fx-background-color: rgba(255,255,255,0.92); -fx-background-radius: 18; -fx-border-color: transparent; -fx-padding: 4 9 4 9; -fx-text-fill: #4f7a5a; -fx-font-size: 16px; -fx-cursor: hand; }
+.rc-heart-card-on { -fx-text-fill: #b23a3a; }
+.rc-expiry { -fx-background-color: #fff2d6; -fx-text-fill: #8a5a00; -fx-background-radius: 10; -fx-padding: 2 9 2 9; -fx-font-size: 11px; -fx-font-weight: bold; }
+.rc-bar-track { -fx-background-color: #eaf0e7; -fx-background-radius: 4; }
+.rc-bar-fill { -fx-background-color: #4f7a5a; -fx-background-radius: 4; }
+.rc-why-line { -fx-text-fill: #3e4a42; -fx-font-size: 12px; }
+.rc-miss-chip { -fx-background-color: #fff2d6; -fx-text-fill: #8a5a00; -fx-background-radius: 10; -fx-padding: 1 8 1 8; -fx-font-size: 11px; }
+.rc-step-num { -fx-background-color: #4f7a5a; -fx-text-fill: white; -fx-background-radius: 14; -fx-font-size: 13px; -fx-font-weight: bold; -fx-alignment: center; }
+.rc-pill-have { -fx-background-color: #e6eee2; -fx-text-fill: #2f5a3a; -fx-background-radius: 10; -fx-padding: 2 8 2 8; -fx-font-size: 11px; }
+.rc-pill-need { -fx-background-color: #fff2d6; -fx-text-fill: #8a5a00; -fx-background-radius: 10; -fx-padding: 2 8 2 8; -fx-font-size: 11px; }
+.rc-step-btn { -fx-background-color: white; -fx-border-color: #cdd6ca; -fx-border-radius: 10; -fx-background-radius: 10; -fx-font-size: 16px; -fx-text-fill: #3e4a42; -fx-min-width: 40; -fx-min-height: 36; -fx-cursor: hand; }
+.rc-kcal { -fx-font-size: 38px; -fx-font-weight: bold; -fx-text-fill: #25362b; }
