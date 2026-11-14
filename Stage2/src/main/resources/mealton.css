@@ -230,7 +230,7 @@
     -fx-padding: 12;
 }
 .button.chat-collapse:hover { -fx-background-color: rgba(255,255,255,0.15); }
-.chat-scroll, .chat-scroll > .viewport, .chat-messages { -fx-background-color: #F5F7F3; }
+.scroll-pane.chat-scroll, .scroll-pane.chat-scroll > .viewport, .chat-messages { -fx-background-color: #F5F7F3; }
 .chat-user {
     -fx-background-color: #4F6B52;
     -fx-text-fill: #FFFFFF;
