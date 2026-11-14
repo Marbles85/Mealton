@@ -32,7 +32,7 @@ class AccountServiceTest {
 				.getMessage();
 		String unknownUser = assertThrows(IllegalArgumentException.class, () -> accounts.logIn("ghost", "password123"))
 				.getMessage();
-		assertEquals("Wrong username or password.", wrongPassword);
+		assertEquals("Wrong email or password.", wrongPassword);
 		assertEquals(wrongPassword, unknownUser);
 	}
 
@@ -55,6 +55,14 @@ class AccountServiceTest {
 		for (String bad : new String[] { "joe@", "@example.com", "joe@example", "joe@@example.com", "a b@example.com",
 				"joe/../x@example.com", "..\\x@example.com" }) {
 			assertThrows(IllegalArgumentException.class, () -> accounts.signUp(bad, "password123", "password123"), bad);
+		}
+	}
+
+	@Test
+	void checkEmailAcceptsOnlyEmailAddresses() {
+		assertEquals("a@b.com", AccountService.checkEmail(" A@B.com "));
+		for (String bad : new String[] { "sam", "", "a@b", "a@@b.com", "a b@c.com", "@c.com", null }) {
+			assertThrows(IllegalArgumentException.class, () -> AccountService.checkEmail(bad), bad);
 		}
 	}
 
