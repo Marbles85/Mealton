@@ -12,9 +12,10 @@ import javafx.scene.layout.StackPane;
 
 /**
  * Main window: the sidebar on the left, the current page in the middle, and the
- * AI chat floating on top (Stage 1: MainWindow).
+ * AI chat floating over everything, including the sidebar (Stage 1:
+ * MainWindow).
  */
-public class MainWindow extends BorderPane {
+public class MainWindow extends StackPane {
 	public static final String RECIPES_PAGE = "Recipes";
 	public static final String LOG_PAGE = "Log food";
 	public static final String PLAN_PAGE = "Meal plan";
@@ -61,18 +62,27 @@ public class MainWindow extends BorderPane {
 			diaryView.refresh();
 			refreshSidebarInfo();
 		}, this::closeChat);
-		chatLayer = new ChatLayer(chat, settings, this::chatOpenChanged);
+		chatLayer = new ChatLayer(chat, settings, this::chatOpenChanged, this::sidebarWidth);
 		sidebar = new Sidebar(settings, this::showPage, chatLayer::toggle, () -> {
 			commitPending(); // keep anything typed on the Profile page
 			onLogout.run();
 		});
+		// when the sidebar collapses or expands, a sidebar-mode chat panel moves with
+		// it
+		sidebar.widthProperty().addListener((obs, oldW, newW) -> chatLayer.requestLayout());
 
-		setLeft(sidebar);
-		setCenter(new StackPane(pageHost, chatLayer));
+		BorderPane layout = new BorderPane();
+		layout.setLeft(sidebar);
+		layout.setCenter(pageHost);
+		getChildren().addAll(layout, chatLayer); // the chat layer is on top of everything
 
 		settings.addChatModeListener(this::applyChatMode);
 		applyChatMode();
 		show(RECIPES_PAGE);
+	}
+
+	private double sidebarWidth() {
+		return sidebar == null ? 0 : sidebar.getWidth();
 	}
 
 	private void closeChat() {
