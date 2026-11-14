@@ -57,3 +57,125 @@
 .rc-pill-need { -fx-background-color: #fff2d6; -fx-text-fill: #8a5a00; -fx-background-radius: 10; -fx-padding: 2 8 2 8; -fx-font-size: 11px; }
 .rc-step-btn { -fx-background-color: white; -fx-border-color: #cdd6ca; -fx-border-radius: 10; -fx-background-radius: 10; -fx-font-size: 16px; -fx-text-fill: #3e4a42; -fx-min-width: 40; -fx-min-height: 36; -fx-cursor: hand; }
 .rc-kcal { -fx-font-size: 38px; -fx-font-weight: bold; -fx-text-fill: #25362b; }
+
+/* v3: closer to the design */
+.rc-title { -fx-font-size: 30px; }
+.rc-sub { -fx-font-size: 15px; }
+.rc-search { -fx-border-color: #cdd6ca; }
+.rc-tabs { -fx-border-color: transparent transparent #dce3d9 transparent; -fx-border-width: 0 0 1 0; -fx-spacing: 4; }
+.rc-tab { -fx-background-color: transparent; -fx-background-radius: 0; -fx-border-color: transparent transparent transparent transparent; -fx-border-width: 0 0 3 0; -fx-text-fill: #4a564e; -fx-font-size: 15px; -fx-font-weight: normal; -fx-padding: 11 14 9 14; }
+.rc-tab:hover { -fx-background-color: transparent; -fx-text-fill: #2f4a34; }
+.rc-tab-on, .rc-tab-on:hover { -fx-background-color: transparent; -fx-text-fill: #2f4a34; -fx-font-weight: bold; -fx-border-color: transparent transparent #4f6b52 transparent; }
+.rc-count { -fx-background-color: #e6eee2; -fx-text-fill: #2f4a34; -fx-background-radius: 10; -fx-padding: 1 7 1 7; -fx-font-size: 12px; }
+.rc-count-on { -fx-background-color: #4f6b52; -fx-text-fill: white; -fx-background-radius: 10; -fx-padding: 1 7 1 7; -fx-font-size: 12px; }
+.rc-filters { -fx-background-color: white; -fx-background-radius: 16; -fx-border-color: #e3e8e1; -fx-border-radius: 16; -fx-padding: 14 16 14 16; -fx-spacing: 10; }
+.rc-h3 { -fx-font-size: 14px; -fx-font-weight: bold; -fx-text-fill: #1f2a22; }
+.rc-link-bold { -fx-background-color: transparent; -fx-border-color: transparent; -fx-text-fill: #4f6b52; -fx-font-weight: bold; -fx-font-size: 13px; -fx-cursor: hand; }
+.rc-switch { -fx-background-color: #b9c2b6; -fx-background-radius: 13; }
+.rc-switch-on { -fx-background-color: #4f6b52; -fx-background-radius: 13; }
+.rc-knob { -fx-background-color: white; -fx-background-radius: 10; -fx-effect: dropshadow(gaussian, rgba(0,0,0,0.25), 2, 0, 0, 1); }
+.rc-chip { -fx-background-color: white; -fx-border-color: #9caf88; -fx-border-style: segments(4, 3); -fx-border-radius: 18; -fx-background-radius: 18; -fx-text-fill: #2f4a34; -fx-font-size: 13px; -fx-padding: 7 14 7 14; -fx-cursor: hand; }
+.rc-chip:hover { -fx-background-color: #eef3ec; }
+.rc-chip-on, .rc-chip-on:hover { -fx-background-color: #4f6b52; -fx-border-color: #4f6b52; -fx-border-style: solid; -fx-border-radius: 18; -fx-background-radius: 18; -fx-text-fill: white; -fx-font-weight: bold; -fx-font-size: 13px; -fx-padding: 7 14 7 14; -fx-cursor: hand; }
+.rc-cf { -fx-background-color: #4f6b52; -fx-background-radius: 18; -fx-border-color: #4f6b52; -fx-border-radius: 18; }
+.rc-cf-name { -fx-background-color: transparent; -fx-text-fill: white; -fx-font-weight: bold; -fx-font-size: 13px; -fx-padding: 7 2 7 14; -fx-cursor: hand; }
+.rc-cf-x { -fx-background-color: transparent; -fx-text-fill: white; -fx-font-size: 16px; -fx-padding: 4 12 4 4; -fx-cursor: hand; }
+.rc-pill-input { -fx-background-color: white; -fx-border-color: #cdd6ca; -fx-border-radius: 18; -fx-background-radius: 18; -fx-padding: 6 14 6 14; -fx-font-size: 13px; }
+.rc-pill-btn { -fx-background-color: white; -fx-border-color: #4f6b52; -fx-border-radius: 18; -fx-background-radius: 18; -fx-text-fill: #2f4a34; -fx-font-weight: bold; -fx-font-size: 13px; -fx-padding: 7 14 7 14; -fx-cursor: hand; }
+.rc-banner { -fx-background-color: white; -fx-background-radius: 14; -fx-border-color: #9caf88; -fx-border-style: segments(6, 4); -fx-border-radius: 14; -fx-padding: 16 20 16 20; }
+.rc-card { -fx-background-color: white; -fx-background-radius: 16; -fx-border-color: #e3e8e1; -fx-border-radius: 16; -fx-effect: null; }
+.rc-card:hover { -fx-border-color: #4f6b52; }
+.rc-card-top { -fx-background-color: #eef2eb; -fx-background-radius: 16 16 0 0; }
+.rc-card-letter { -fx-font-size: 54px; -fx-font-weight: bold; -fx-text-fill: #9caf88; }
+.rc-card-title { -fx-font-size: 17px; -fx-font-weight: bold; -fx-text-fill: #1f2a22; }
+.rc-meta13 { -fx-font-size: 13px; -fx-text-fill: #5b6660; }
+.rc-stars { -fx-text-fill: #8a6a2e; -fx-font-size: 13px; }
+.rc-expiry { -fx-background-color: #fcefe2; -fx-text-fill: #8a4208; -fx-background-radius: 8; -fx-padding: 4 8 4 8; -fx-font-size: 12px; -fx-font-weight: bold; }
+.rc-heart-card { -fx-background-color: white; -fx-background-radius: 22; -fx-border-color: transparent; -fx-min-width: 44; -fx-min-height: 44; -fx-max-width: 44; -fx-max-height: 44; -fx-padding: 0; -fx-text-fill: #4f6b52; -fx-font-size: 20px; -fx-cursor: hand; -fx-effect: dropshadow(gaussian, rgba(31,42,34,0.18), 4, 0, 0, 1); }
+.rc-heart-card:disabled { -fx-opacity: 1; }
+.rc-why-line { -fx-font-size: 13px; -fx-text-fill: #3e4a42; }
+.rc-missing-box { -fx-background-color: #f5f7f3; -fx-background-radius: 10; -fx-padding: 10 12 10 12; }
+.rc-missing-title { -fx-font-size: 12px; -fx-font-weight: bold; -fx-text-fill: #3e4a42; }
+.rc-dot { -fx-background-color: #c9a66b; -fx-background-radius: 3; }
+.rc-solid { -fx-background-color: #4f6b52; -fx-background-radius: 10; -fx-text-fill: white; -fx-font-weight: bold; -fx-font-size: 14px; -fx-min-height: 44; -fx-cursor: hand; -fx-border-color: transparent; }
+.rc-solid:hover { -fx-background-color: #3f5842; }
+.rc-added-bar { -fx-background-color: #e6eee2; -fx-background-radius: 10; -fx-padding: 0 12 0 12; -fx-min-height: 44; }
+.rc-added-text { -fx-text-fill: #2f4a34; -fx-font-weight: bold; -fx-font-size: 13px; }
+.rc-undo { -fx-background-color: transparent; -fx-border-color: transparent; -fx-text-fill: #2f4a34; -fx-underline: true; -fx-font-weight: bold; -fx-font-size: 13px; -fx-cursor: hand; }
+.rc-card-foot { -fx-border-color: #f0f3ee transparent transparent transparent; -fx-border-width: 1 0 0 0; -fx-padding: 10 0 0 0; }
+
+/* v4: detail, new recipe form, dialog */
+.rc-tile { -fx-background-color: #f5f7f3; -fx-background-radius: 12; -fx-padding: 12 14 12 14; }
+.rc-tile-value { -fx-font-size: 20px; -fx-font-weight: bold; -fx-text-fill: #25362b; }
+.rc-hero-pic { -fx-background-color: #eef2eb; -fx-background-radius: 16; }
+.rc-drop { -fx-background-color: #f5f7f3; -fx-background-radius: 14; -fx-border-color: #9caf88; -fx-border-style: segments(6, 4); -fx-border-radius: 14; }
+.rc-drop-text { -fx-text-fill: #4f6b52; -fx-font-size: 14px; -fx-font-weight: bold; }
+.rc-field { -fx-background-color: white; -fx-border-color: #cdd6ca; -fx-border-radius: 10; -fx-background-radius: 10; -fx-padding: 10 12 10 12; -fx-font-size: 15px; }
+.rc-x-btn { -fx-background-color: transparent; -fx-border-color: transparent; -fx-text-fill: #6b7d70; -fx-font-size: 18px; -fx-cursor: hand; -fx-min-width: 36; }
+.rc-x-btn:hover { -fx-text-fill: #b23a3a; }
+.rc-step-row { -fx-padding: 4 0 4 0; }
+.rc-step-num { -fx-background-color: #4f6b52; -fx-text-fill: white; -fx-background-radius: 15; -fx-border-color: transparent; -fx-padding: 0; -fx-font-size: 13px; -fx-font-weight: bold; -fx-cursor: hand; }
+.rc-step-num-done { -fx-background-color: white; -fx-text-fill: #4f6b52; -fx-background-radius: 15; -fx-border-color: #4f6b52; -fx-border-radius: 15; -fx-border-width: 2; -fx-padding: 0; -fx-font-size: 13px; -fx-font-weight: bold; -fx-cursor: hand; }
+.rc-step-kicker { -fx-font-size: 11px; -fx-font-weight: bold; -fx-text-fill: #6b7d70; }
+.rc-step-text { -fx-font-size: 15px; -fx-text-fill: #25362b; }
+.rc-step-done { -fx-font-size: 15px; -fx-text-fill: #8a968d; -fx-strikethrough: true; }
+.rc-time-chip { -fx-background-color: #fcefe2; -fx-text-fill: #8a4208; -fx-background-radius: 10; -fx-padding: 2 9 2 9; -fx-font-size: 12px; -fx-font-weight: bold; }
+.rc-use-chip { -fx-background-color: #e6eee2; -fx-text-fill: #2f4a34; -fx-background-radius: 10; -fx-padding: 2 9 2 9; -fx-font-size: 12px; }
+.rc-dialog { -fx-background-color: white; -fx-padding: 14; }
+.rc-dialog .header-panel { -fx-pref-height: 0; -fx-min-height: 0; -fx-max-height: 0; -fx-padding: 0; }
+.rc-dialog .button-bar .container { -fx-background-color: white; }
+.rc-dialog .button-bar { -fx-background-color: white; }
+.rc-dialog-title { -fx-font-size: 22px; -fx-font-weight: bold; -fx-text-fill: #25362b; }
+
+/* calendar dialog: meal tags copied from the design's meal plan tags */
+.rc-tag-off { -fx-background-color: #f1f4ef; -fx-background-radius: 17; -fx-border-color: #4f6b52; -fx-border-radius: 17; -fx-border-width: 1; -fx-text-fill: #2f4a34; -fx-font-size: 13px; -fx-font-weight: bold; -fx-padding: 7 14 7 14; -fx-cursor: hand; }
+.rc-tag-on, .rc-tag-on:hover { -fx-background-color: #4f6b52; -fx-background-radius: 17; -fx-border-color: #4f6b52; -fx-border-radius: 17; -fx-border-width: 1; -fx-text-fill: white; -fx-font-size: 13px; -fx-font-weight: bold; -fx-padding: 7 14 7 14; -fx-cursor: hand; }
+.rc-date { -fx-pref-height: 40; -fx-font-size: 14px; }
+.rc-date > .text-field { -fx-font-size: 14px; -fx-padding: 8 12 8 12; -fx-background-radius: 10; -fx-border-radius: 10; }
+.rc-dialog .button-bar .button { -fx-font-size: 14px; -fx-padding: 9 20 9 20; -fx-min-height: 40; -fx-background-radius: 10; -fx-border-radius: 10; }
+.rc-dialog .button-bar .container { -fx-alignment: center-left; -fx-padding: 4 10 0 10; }
+.rc-dialog .content { -fx-padding: 0; }
+.rc-dialog { -fx-padding: 10 14 14 14; }
+
+/* same-size action buttons on the recipe page */
+.rc-action, .rc-action-primary, .rc-heart { -fx-min-height: 44; -fx-pref-height: 44; -fx-max-height: 44; -fx-font-size: 15px; -fx-font-weight: bold; -fx-padding: 0 18 0 18; -fx-cursor: hand; }
+.rc-action { -fx-background-color: white; -fx-text-fill: #2f4a34; -fx-border-color: #4f6b52; -fx-border-radius: 10; -fx-background-radius: 10; }
+.rc-action:hover { -fx-background-color: #eef3ec; }
+.rc-action-primary { -fx-background-color: #4f6b52; -fx-text-fill: white; -fx-background-radius: 10; -fx-border-radius: 10; -fx-border-color: #4f6b52; }
+.rc-action-primary:hover { -fx-background-color: #3f5842; }
+.rc-heart { -fx-background-radius: 10; -fx-border-radius: 10; }
+
+.rc-need-note { -fx-font-size: 12px; -fx-text-fill: #8a4208; }
+
+/* v5: plan chip, source row */
+.rc-plan-off { -fx-background-color: #e6eee2; -fx-background-radius: 18; -fx-border-color: #4f6b52; -fx-border-width: 2; -fx-border-radius: 18; -fx-text-fill: #2f4a34; -fx-font-size: 13px; -fx-font-weight: bold; -fx-padding: 6 14 6 14; -fx-cursor: hand; }
+.rc-plan-on { -fx-background-color: #4f6b52; -fx-background-radius: 18; -fx-border-color: #4f6b52; -fx-border-width: 2; -fx-border-radius: 18; -fx-text-fill: white; -fx-font-size: 13px; -fx-font-weight: bold; -fx-padding: 6 14 6 14; -fx-cursor: hand; }
+.rc-divider { -fx-background-color: #dce3d9; }
+.rc-plan-chip { -fx-background-color: #e6eee2; -fx-text-fill: #2f4a34; -fx-background-radius: 6; -fx-padding: 3 8 3 8; -fx-font-size: 12px; -fx-font-weight: bold; }
+.rc-source { -fx-background-color: #f1f4ef; -fx-background-radius: 10; -fx-padding: 6 12 6 12; }
+
+/* v6: segmented switches (g / ml | cups, Per serving | Whole recipe) exactly like the design */
+.rc-seg-bar { -fx-background-color: #eef2eb; -fx-background-radius: 10; -fx-padding: 3; -fx-spacing: 3; }
+.rc-seg-bar .rc-seg { -fx-background-color: transparent; -fx-background-insets: 0; -fx-background-radius: 8; -fx-border-color: transparent; -fx-border-width: 0; -fx-border-radius: 8; -fx-effect: null; -fx-text-fill: #4a564e; -fx-font-size: 13px; -fx-font-weight: normal; -fx-padding: 0 12 0 12; -fx-min-height: 38; -fx-pref-height: 38; -fx-max-height: 38; -fx-cursor: hand; }
+.rc-seg-bar .rc-seg:hover { -fx-background-color: rgba(255,255,255,0.55); }
+.rc-seg-bar .rc-seg:focused { -fx-background-insets: 0; }
+.rc-seg-bar .rc-seg-on, .rc-seg-bar .rc-seg-on:hover { -fx-background-color: white; -fx-text-fill: #2f4a34; -fx-font-weight: bold; -fx-effect: dropshadow(gaussian, rgba(31,42,34,0.12), 2, 0, 0, 1); }
+
+/* step chips you can fix, and the underlined Undo link */
+.rc-use-chip-box { -fx-background-color: #e6eee2; -fx-background-radius: 10; -fx-padding: 0 4 0 0; }
+.rc-use-chip-box .label { -fx-background-color: transparent; -fx-text-fill: #2f4a34; -fx-font-size: 12px; -fx-padding: 2 0 2 9; }
+.rc-chip-x { -fx-background-color: transparent; -fx-border-color: transparent; -fx-text-fill: #4f6b52; -fx-font-size: 13px; -fx-padding: 0 4 0 2; -fx-cursor: hand; }
+.rc-chip-x:hover { -fx-text-fill: #a33a2a; }
+.rc-chip-add { -fx-background-color: transparent; -fx-border-color: #9fb3a0; -fx-border-style: segments(4, 3); -fx-border-radius: 10; -fx-text-fill: #4f6b52; -fx-font-size: 12px; -fx-padding: 1 9 1 9; -fx-cursor: hand; }
+.rc-link-undo { -fx-background-color: transparent; -fx-border-color: transparent; -fx-text-fill: #4f6b52; -fx-underline: true; -fx-font-weight: bold; -fx-font-size: 13px; -fx-padding: 0 4 0 4; -fx-cursor: hand; }
+.rc-dialog .button-bar .button.rc-danger { -fx-background-color: #4f6b52; -fx-text-fill: white; -fx-font-weight: bold; }
+.rc-dialog .button-bar .button.rc-danger:hover { -fx-background-color: #3f5842; }
+.rc-delete-btn { -fx-background-color: white; -fx-border-color: #4f6b52; -fx-border-radius: 10; -fx-background-radius: 10; -fx-text-fill: #4f6b52; -fx-font-weight: bold; -fx-font-size: 14px; -fx-padding: 9 20 9 20; -fx-cursor: hand; }
+.rc-delete-btn:hover { -fx-background-color: #4f6b52; -fx-text-fill: white; }
+
+/* delete pop-up sections */
+.rc-del-card { -fx-background-color: #eef3ea; -fx-background-radius: 14; -fx-border-color: #d5dfd0; -fx-border-radius: 14; -fx-padding: 14; }
+.rc-del-thumb { -fx-background-color: #dfe8da; -fx-background-radius: 12; }
+.rc-del-list { -fx-background-color: white; -fx-background-radius: 14; -fx-border-color: #e1e8de; -fx-border-radius: 14; -fx-padding: 14; }
+.rc-del-mark { -fx-text-fill: #4f6b52; -fx-font-weight: bold; -fx-font-size: 14px; }
+.rc-dialog .button-bar { -fx-padding: 6 0 0 0; }

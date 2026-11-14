@@ -62,15 +62,25 @@ public final class UserDataMapper {
 		List<LibraryRow> library = new ArrayList<>();
 		List<OwnRecipeRow> own = new ArrayList<>();
 		for (Recipe r : facade.getRecipes()) {
-			if (r.isLibrary()) {
-				library.add(new LibraryRow(r.getTitle(), r.isSaved(), r.getRating()));
+			if (r.isLibrary() && r.isDiscovered() && !r.isSaved()) {
+				continue; // generated recipes you did not keep are simply generated again next time
+			}
+			if (r.isLibrary() && !r.isDiscovered()) {
+				library.add(new LibraryRow(r.getTitle(), r.isSaved(), r.getRating(), r.getPhoto()));
 			} else {
 				List<IngredientRow> ingredients = new ArrayList<>();
 				for (RecipeIngredient i : r.getIngredients()) {
 					ingredients.add(new IngredientRow(i.name(), i.quantity(), i.unit()));
 				}
 				own.add(new OwnRecipeRow(r.getTitle(), r.getServings(), ingredients, new ArrayList<>(r.getSteps()),
-						r.getRating()));
+						r.getRating(), r.getPrepMinutes(), r.getCookMinutes(), r.getSourceName(), r.getSourceUrl(),
+						r.getPhoto(),
+						r.getAiEstimate() == null ? null
+								: new UserData.NutrientsRow(r.getAiEstimate().calories(), r.getAiEstimate().protein(),
+										r.getAiEstimate().carbs(), r.getAiEstimate().fat()),
+						new ArrayList<>(r.getAiTags()), new java.util.TreeMap<>(r.getAllStepIngredients()),
+						r.getTotalOverride(), new java.util.TreeMap<>(r.getAllStepTimes()), r.getPublicRating(),
+						r.getPublicRatingCount()));
 			}
 		}
 
@@ -127,6 +137,7 @@ public final class UserDataMapper {
 				if (row.rating() > 0) {
 					facade.rateRecipe(r.getId(), row.rating());
 				}
+				r.setPhoto(row.photo());
 			});
 		}
 		for (OwnRecipeRow row : orEmpty(data.ownRecipes())) {
@@ -135,7 +146,39 @@ public final class UserDataMapper {
 				for (IngredientRow i : orEmpty(row.ingredients())) {
 					ingredients.add(new RecipeIngredient(i.name(), i.quantity(), i.unit()));
 				}
-				Recipe saved = facade.saveRecipe(new Recipe(row.title(), row.servings(), ingredients, row.steps()));
+				Recipe made = new Recipe(row.title(), row.servings(), ingredients, row.steps());
+				made.setTimes(row.prepMinutes(), row.cookMinutes());
+				made.setSource(row.sourceName(), row.sourceUrl());
+				made.setPhoto(row.photo());
+				if (row.aiEstimate() != null) {
+					var e = row.aiEstimate();
+					made.setAiEstimate(
+							new com.mealton.nutrition.Nutrients(e.calories(), e.protein(), e.carbs(), e.fat()));
+				}
+				made.setAiTags(row.aiTags());
+				if (row.stepUses() != null) {
+					row.stepUses().forEach((step, names) -> {
+						try {
+							made.setStepIngredients(step, names);
+						} catch (IllegalArgumentException outOfDate) {
+							// a step that no longer exists: ignore
+						}
+					});
+				}
+				made.setTotalOverride(row.totalMinutes());
+				if (row.publicRating() > 0) {
+					made.setPublicRating(row.publicRating(), row.publicRatingCount());
+				}
+				if (row.stepTimes() != null) {
+					row.stepTimes().forEach((step, minutes) -> {
+						try {
+							made.setStepTime(step, minutes);
+						} catch (IllegalArgumentException outOfDate) {
+							// a step that no longer exists: ignore
+						}
+					});
+				}
+				Recipe saved = facade.saveRecipe(made);
 				if (row.rating() > 0) {
 					facade.rateRecipe(saved.getId(), row.rating());
 				}

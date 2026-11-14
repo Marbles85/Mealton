@@ -7,10 +7,9 @@ import com.mealton.repository.InMemoryRecipeRepository;
 import com.mealton.repository.RecipeRepository;
 
 /**
- * The recipe collection (feature F13): save, rate, list, scale and delete. It
- * checks the rules (no duplicate titles, ratings 1 to 5) and leaves storage to
- * a {@link RecipeRepository}. "My Recipes" is the part of the collection the
- * user made or saved.
+ * The user's recipe collection ("My Recipes", feature F13): save, rate, list,
+ * scale and delete. It checks the rules (no duplicate titles, ratings 1 to 5)
+ * and leaves storage to a {@link RecipeRepository}.
  */
 public class RecipeBook {
 	private final RecipeRepository repository;
@@ -50,7 +49,7 @@ public class RecipeBook {
 				.orElseThrow(() -> new IllegalArgumentException("There is no saved recipe with id " + id + "."));
 	}
 
-	/** Every recipe (library and your own), in the order they were added. */
+	/** All saved recipes, in the order they were saved. */
 	public List<Recipe> getAll() {
 		return repository.findAll();
 	}
@@ -75,6 +74,25 @@ public class RecipeBook {
 		return recipe;
 	}
 
+	/**
+	 * Edits one of the user's own recipes in place (its id, rating and photo stay).
+	 * Ready-made library recipes cannot be edited. The new title may not belong to
+	 * another recipe.
+	 */
+	public Recipe update(long id, Recipe edited) {
+		Recipe existing = get(id);
+		if (existing.isLibrary()) {
+			throw new IllegalArgumentException("Ready-made recipes cannot be edited. Write your own recipe instead.");
+		}
+		repository.findByTitle(edited.getTitle()).ifPresent(other -> {
+			if (other.getId() != id) {
+				throw new IllegalArgumentException("You already have a recipe called '" + edited.getTitle() + "'.");
+			}
+		});
+		existing.edit(edited);
+		return repository.save(existing);
+	}
+
 	/** Rated recipes only, best first (ties are sorted by title). */
 	public List<Recipe> getTopRated() {
 		return repository.findAll().stream().filter(Recipe::isRated).sorted(Comparator.comparingInt(Recipe::getRating)
@@ -89,7 +107,7 @@ public class RecipeBook {
 		return get(id).scaledTo(servings);
 	}
 
-	/** Removes a recipe. */
+	/** Removes a saved recipe. */
 	public void delete(long id) {
 		get(id); // gives a clear error if it does not exist
 		repository.delete(id);

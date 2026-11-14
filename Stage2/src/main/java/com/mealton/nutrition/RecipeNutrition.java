@@ -12,14 +12,16 @@ import com.mealton.recipe.RecipeIngredient;
  * weigh) are listed in {@code notCounted} and add nothing, so the figures are a
  * lower bound and are always shown as an estimate.
  *
- * @param total      the whole recipe
- * @param perServing the whole recipe divided by its servings
- * @param servings   how many servings the recipe makes
- * @param counted    names of the ingredients that were added up
- * @param notCounted names of the ingredients that could not be added up
+ * @param total       the whole recipe
+ * @param perServing  the whole recipe divided by its servings
+ * @param servings    how many servings the recipe makes
+ * @param counted     names of the ingredients that were added up
+ * @param notCounted  names of the ingredients that could not be added up
+ * @param aiEstimated true when the figures are Claude's estimate for the whole
+ *                    recipe because the table could not cover it
  */
 public record RecipeNutrition(Nutrients total, Nutrients perServing, int servings, List<String> counted,
-		List<String> notCounted) {
+		List<String> notCounted, boolean aiEstimated) {
 
 	public RecipeNutrition {
 		counted = List.copyOf(counted);
@@ -44,8 +46,17 @@ public record RecipeNutrition(Nutrients total, Nutrients perServing, int serving
 				notCounted.add(ingredient.name());
 			}
 		}
+		boolean ai = false;
+		if (!notCounted.isEmpty() && recipe.getAiEstimate() != null) {
+			// the built-in table could not cover everything, so use Claude's estimate for
+			// the whole recipe
+			total = recipe.getAiEstimate();
+			counted.addAll(notCounted);
+			notCounted.clear();
+			ai = true;
+		}
 		return new RecipeNutrition(total, total.times(1.0 / recipe.getServings()), recipe.getServings(), counted,
-				notCounted);
+				notCounted, ai);
 	}
 
 	/** Share of the ingredients that were counted, from 0.0 to 1.0. */
@@ -67,7 +78,7 @@ public record RecipeNutrition(Nutrients total, Nutrients perServing, int serving
 		if (counted.isEmpty()) {
 			return "No nutrition estimate: none of the ingredients are in the food table.";
 		}
-		return "Per serving (estimate): " + perServing.summary()
+		return "Per serving (estimate" + (aiEstimated ? ", by Claude" : "") + "): " + perServing.summary()
 				+ (notCounted.isEmpty() ? "" : "  (not counted: " + String.join(", ", notCounted) + ")");
 	}
 }

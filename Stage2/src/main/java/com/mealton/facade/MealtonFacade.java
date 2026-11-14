@@ -1,9 +1,11 @@
 package com.mealton.facade;
 
+import java.nio.file.Path;
 import java.time.Clock;
 import java.time.LocalDate;
 import java.util.Collection;
 import java.util.List;
+import java.util.Optional;
 import java.util.Set;
 
 import com.mealton.agent.AgentMemory;
@@ -24,6 +26,7 @@ import com.mealton.nutrition.LoggedFood;
 import com.mealton.nutrition.MacroTracker;
 import com.mealton.nutrition.Nutrients;
 import com.mealton.nutrition.RecipeNutrition;
+import com.mealton.nutrition.RecipeNutritionEstimator;
 import com.mealton.pantry.FreshnessScheduler;
 import com.mealton.pantry.PantryInventory;
 import com.mealton.pantry.PantryItem;
@@ -35,11 +38,15 @@ import com.mealton.plan.PrepPlanner;
 import com.mealton.plan.WeekPlan;
 import com.mealton.profile.ProfileService;
 import com.mealton.profile.UserProfile;
+import com.mealton.recipe.HttpFetcher;
 import com.mealton.recipe.Recipe;
 import com.mealton.recipe.RecipeAdvisor;
 import com.mealton.recipe.RecipeBook;
+import com.mealton.recipe.RecipeDiscovery;
+import com.mealton.recipe.RecipeImporter;
 import com.mealton.recipe.RecipeIngredient;
 import com.mealton.recipe.RecipeMatch;
+import com.mealton.recipe.RecipePhotos;
 import com.mealton.recipe.RecipeTag;
 import com.mealton.repository.InMemoryPantryRepository;
 import com.mealton.shopping.ShoppingItem;
@@ -62,6 +69,7 @@ public class MealtonFacade {
 	private final ShoppingService shopping;
 	private final FreshnessScheduler scheduler;
 	private final RecipeBook recipes = new RecipeBook();
+	private RecipePhotos photos = new RecipePhotos(null); // set by setMediaDirectory once a user is logged in
 	private final RecipeAdvisor advisor;
 	private final ProfileService profile = new ProfileService();
 	private final PlanService planner;
@@ -69,6 +77,7 @@ public class MealtonFacade {
 	private final MacroTracker tracker = new MacroTracker(profile::get);
 	private final AgentMemory memory = new AgentMemory();
 	private MealtonAgent agent; // null until enableAgent() is called
+	private RecipeImporter.Fetcher importFetcher = new HttpFetcher();
 	private LLMClient llm; // null until enableAgent() is called; also writes the one-line recipe reasons
 
 	public MealtonFacade() {
@@ -237,7 +246,236 @@ public class MealtonFacade {
 	}
 
 	public void deleteRecipe(long id) {
+		photos.remove(recipes.get(id));
 		recipes.delete(id);
+	}
+
+	/**
+	 * Edits one of your own recipes (title, servings, ingredients, steps, times,
+	 * source). Its rating and photo stay.
+	 */
+	public Recipe updateRecipe(long id, Recipe edited) {
+		return recipes.update(id, edited);
+	}
+
+	// ---------------- Recipes from the web and AI nutrition ----------------
+
+	/** Replaces the internet access used to import recipes (tests use a fake). */
+	public void setImportFetcher(RecipeImporter.Fetcher fetcher) {
+		this.importFetcher = fetcher;
+	}
+
+	/**
+	 * Reads a recipe web page and returns a draft recipe (not saved) plus its
+	 * picture file, if one was found. Claude tidies the ingredient lines when it is
+	 * switched on; otherwise a built-in parser does it. Slow (it uses the
+	 * internet), so screens call it in the background.
+	 */
+	public RecipeImporter.Imported importRecipeFromLink(String url) throws RecipeImporter.ImportException {
+		return new RecipeImporter(importFetcher, llm).importFrom(url);
+	}
+
+	/**
+	 * Asks Claude for a nutrition estimate of one of your own recipes, but only
+	 * when the built-in food table cannot cover every ingredient. Returns true if
+	 * an estimate was stored. Slow, so screens call it in the background.
+	 */
+	public boolean estimateNutrition(long id) {
+		Recipe recipe = recipes.get(id);
+		if (recipe.isLibrary() || RecipeNutrition.of(recipe).isComplete()) {
+			return false;
+		}
+		Optional<Nutrients> estimate = RecipeNutritionEstimator.estimate(llm, recipe);
+		estimate.ifPresent(recipe::setAiEstimate);
+		return estimate.isPresent();
+	}
+
+	// ---------------- Recipes invented by Claude (All recipes tab)
+	// ----------------
+
+	/**
+	 * True when the All recipes tab can be refreshed with new recipes (Claude is
+	 * switched on).
+	 */
+	public boolean canGenerateRecipes() {
+		return llm != null;
+	}
+
+	/**
+	 * The filter words Claude gave to recipes, most common first (for the AI-made
+	 * filter chips). Empty until Claude has written or tagged some recipes.
+	 */
+	public java.util.List<String> aiFilterSuggestions(int max) {
+		java.util.Map<String, Integer> counts = new java.util.HashMap<>();
+		for (Recipe r : recipes.getAll()) {
+			r.getAiTags().forEach(t -> counts.merge(t, 1, Integer::sum));
+		}
+		return counts.entrySet().stream()
+				.sorted(java.util.Map.Entry.<String, Integer>comparingByValue().reversed()
+						.thenComparing(java.util.Map.Entry.comparingByKey()))
+				.limit(max).map(java.util.Map.Entry::getKey).toList();
+	}
+
+	/**
+	 * Titles of every recipe that exists now (so new generated recipes can be
+	 * different).
+	 */
+	public java.util.List<String> recipeTitles() {
+		java.util.List<String> titles = new java.util.ArrayList<>();
+		for (Recipe r : recipes.getAll()) {
+			titles.add(r.getTitle());
+		}
+		return titles;
+	}
+
+	/**
+	 * Step 1 of a refresh: asks Claude for new recipes (asked 10 at a time) and
+	 * returns them without storing anything, so it is safe to run in the
+	 * background. Returns an empty list if Claude gave nothing usable.
+	 *
+	 * @param count       how many new recipes to aim for
+	 * @param hint        what the cook is interested in, for example the filters
+	 *                    they typed (may be blank)
+	 * @param avoidTitles titles that already exist (see {@link #recipeTitles()})
+	 */
+	public java.util.List<Recipe> generateRecipeDrafts(int count, String hint, java.util.List<String> avoidTitles) {
+		if (llm == null) {
+			throw new IllegalStateException("Turn Claude on (an API key in .env) to generate new recipes.");
+		}
+		java.util.List<Recipe> fresh = new java.util.ArrayList<>();
+		for (int attempt = 0; attempt < 5 && fresh.size() < count; attempt++) {
+			java.util.List<String> avoid = new java.util.ArrayList<>(avoidTitles);
+			fresh.forEach(r -> avoid.add(r.getTitle()));
+			for (Recipe r : RecipeDiscovery.generate(llm, Math.min(10, count - fresh.size()),
+					profile.get().diet().label(), hint, avoid)) {
+				if (fresh.size() < count) {
+					fresh.add(r);
+				}
+			}
+		}
+		return fresh;
+	}
+
+	/**
+	 * Step 2 of a refresh: swaps the new recipes in for the generated ones you did
+	 * not keep. Recipes you saved or planned stay. Does nothing (returns 0) when
+	 * the list is empty. Must run on the screen thread.
+	 *
+	 * @return how many new recipes were added
+	 */
+	public int swapInDiscoveredRecipes(java.util.List<Recipe> fresh) {
+		if (fresh == null || fresh.isEmpty()) {
+			return 0;
+		}
+		java.util.Set<String> planned = new java.util.HashSet<>();
+		for (var day : getPlan().days()) {
+			for (MealEntry entry : day.entries()) {
+				planned.add(entry.recipe().getTitle());
+			}
+		}
+		for (Recipe r : java.util.List.copyOf(recipes.getAll())) {
+			if (r.isDiscovered() && !r.isSaved() && !planned.contains(r.getTitle())) {
+				recipes.delete(r.getId());
+			}
+		}
+		int added = 0;
+		for (Recipe r : fresh) {
+			r.setLibrary(true);
+			r.setDiscovered(true);
+			try {
+				recipes.save(r);
+				added++;
+			} catch (IllegalArgumentException duplicate) {
+				// the same title already exists: skip it
+			}
+		}
+		return added;
+	}
+
+	/**
+	 * Both steps in one go (used by the command line and the tests). @return how
+	 * many new recipes were added
+	 */
+	public int refreshDiscoveredRecipes(int count, String hint) {
+		return swapInDiscoveredRecipes(generateRecipeDrafts(count, hint, recipeTitles()));
+	}
+
+	/**
+	 * Copies a recipe's photo to a temporary file (so a delete or a photo removal
+	 * can be undone). Empty if it has none.
+	 */
+	public Optional<Path> backupRecipePhoto(long id) {
+		Optional<Path> photo = photos.find(recipes.get(id));
+		if (photo.isEmpty()) {
+			return Optional.empty();
+		}
+		try {
+			String name = photo.get().getFileName().toString();
+			Path copy = java.nio.file.Files.createTempFile("mealton-undo-", name.substring(name.lastIndexOf('.')));
+			java.nio.file.Files.copy(photo.get(), copy, java.nio.file.StandardCopyOption.REPLACE_EXISTING);
+			copy.toFile().deleteOnExit();
+			return Optional.of(copy);
+		} catch (java.io.IOException e) {
+			return Optional.empty();
+		}
+	}
+
+	/**
+	 * Undo for a delete: puts the same recipe (same id, rating, notes) back. Its
+	 * photo is added again with setRecipePhoto.
+	 */
+	public Recipe restoreDeletedRecipe(Recipe recipe) {
+		return recipes.save(recipe);
+	}
+
+	/**
+	 * Chooses which ingredient chips show under one step of your own recipe (step 0
+	 * is the first).
+	 */
+	public Recipe setStepIngredients(long id, int step, java.util.List<String> names) {
+		Recipe recipe = recipes.get(id);
+		if (recipe.isLibrary()) {
+			throw new IllegalArgumentException("Ready-made recipes cannot be changed. Write your own recipe instead.");
+		}
+		recipe.setStepIngredients(step, names);
+		return recipe;
+	}
+
+	/** Puts one step of your own recipe back to the automatic ingredient chips. */
+	public Recipe resetStepIngredients(long id, int step) {
+		Recipe recipe = recipes.get(id);
+		recipe.resetStepIngredients(step);
+		return recipe;
+	}
+
+	// ---------------- Recipe photos ----------------
+
+	/**
+	 * Tells the facade where this user's photos are kept (their own media folder).
+	 */
+	public void setMediaDirectory(Path directory) {
+		this.photos = new RecipePhotos(directory);
+	}
+
+	/**
+	 * Adds or replaces the photo of a recipe with a copy of a picture file (png,
+	 * jpg, gif or bmp, up to 10 MB).
+	 */
+	public Recipe setRecipePhoto(long id, Path picture) {
+		Recipe recipe = recipes.get(id);
+		photos.attach(recipe, picture);
+		return recipe;
+	}
+
+	public Recipe removeRecipePhoto(long id) {
+		Recipe recipe = recipes.get(id);
+		photos.remove(recipe);
+		return recipe;
+	}
+
+	/** The photo file of a recipe, or empty if it has none. */
+	public Optional<Path> getRecipePhoto(long id) {
+		return photos.find(recipes.get(id));
 	}
 
 	// ---------------- Recipe ideas from the pantry (F07) and missing ingredients
@@ -512,6 +750,10 @@ public class MealtonFacade {
 	}
 
 	public void setCalendarMeal(LocalDate date, String meal, long recipeId) {
+		Recipe chosen = recipes.get(recipeId);
+		if (chosen.isDiscovered() && !chosen.isSaved()) {
+			recipes.setSaved(recipeId, true); // a generated recipe you plan with is kept, so a refresh cannot remove it
+		}
 		calendar.set(date, meal, recipeId);
 	}
 

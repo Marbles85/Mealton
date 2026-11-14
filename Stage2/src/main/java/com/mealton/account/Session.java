@@ -41,6 +41,7 @@ public final class Session {
 		if (llm != null) {
 			facade.enableAgent(llm);
 		}
+		facade.setMediaDirectory(accounts.userDirectory(name).resolve("media"));
 		UserDataStore store = new UserDataStore(accounts.userDirectory(name).resolve("data.json"));
 		List<String> warnings = new ArrayList<>();
 		try {

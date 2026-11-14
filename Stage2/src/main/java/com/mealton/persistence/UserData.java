@@ -27,14 +27,20 @@ public record UserData(int version, ProfileRow profile, List<PantryRow> pantry, 
 	 * A recipe that comes with the app: only what the user changed (saved heart,
 	 * stars).
 	 */
-	public record LibraryRow(String title, boolean saved, int rating) {
+	public record LibraryRow(String title, boolean saved, int rating, String photo) {
 	}
 
 	public record IngredientRow(String name, double quantity, String unit) {
 	}
 
 	public record OwnRecipeRow(String title, int servings, List<IngredientRow> ingredients, List<String> steps,
-			int rating) {
+			int rating, int prepMinutes, int cookMinutes, String sourceName, String sourceUrl, String photo,
+			NutrientsRow aiEstimate, List<String> aiTags, java.util.Map<Integer, List<String>> stepUses,
+			int totalMinutes, java.util.Map<Integer, Integer> stepTimes, double publicRating, int publicRatingCount) {
+	}
+
+	/** Claude's nutrition estimate for a whole recipe. */
+	public record NutrientsRow(double calories, double protein, double carbs, double fat) {
 	}
 
 	public record PlanRow(String day, String meal, String recipe) {
