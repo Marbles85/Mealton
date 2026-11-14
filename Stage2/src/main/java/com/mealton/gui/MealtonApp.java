@@ -92,13 +92,35 @@ public class MealtonApp extends Application {
 			new Alert(Alert.AlertType.WARNING, String.join("\n", session.warnings())).showAndWait();
 		}
 		stage.setTitle("Mealton - " + username);
-		window = new MainWindow(session.facade(), username, this::saveNow, this::logOut);
+		window = new MainWindow(session.facade(), username, this::saveNow, this::logOut, this::deleteAccount);
 		stage.setScene(styledScene(window));
 	}
 
 	private void logOut() {
 		saveNow();
 		showLogin();
+	}
+
+	/**
+	 * Permanently deletes the logged-in account (the user already typed DELETE on
+	 * the Profile page): nothing is saved first, and the saved "Remember me" login
+	 * for it is forgotten.
+	 */
+	private void deleteAccount() {
+		if (session == null) {
+			return;
+		}
+		String user = session.username();
+		try {
+			accounts.deleteAccount(user);
+		} catch (RuntimeException e) {
+			new Alert(Alert.AlertType.ERROR, "The account could not be deleted: " + e.getMessage()).show();
+			return;
+		}
+		if (user.equals(UiSettings.rememberedUser())) {
+			UiSettings.forgetRemembered();
+		}
+		showLogin(); // clears the session, so closing the window cannot save the old data again
 	}
 
 	/**

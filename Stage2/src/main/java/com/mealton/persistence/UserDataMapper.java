@@ -45,7 +45,8 @@ public final class UserDataMapper {
 	public static UserData capture(MealtonFacade facade) {
 		UserProfile p = facade.getProfile();
 		ProfileRow profile = new ProfileRow(p.name(), p.diet().label(), new ArrayList<>(p.allergies()), p.calorieGoal(),
-				p.proteinGoal(), p.carbsGoal(), p.fatGoal());
+				p.proteinGoal(), p.carbsGoal(), p.fatGoal(), p.email(), p.birthDate(), p.sex(), p.weightKg(),
+				p.heightCm(), p.activity().name(), p.goal().name(), new ArrayList<>(p.restrictions()), p.trackMacros());
 
 		List<PantryRow> pantry = new ArrayList<>();
 		for (PantryItem item : facade.getPantryItems()) {
@@ -190,11 +191,22 @@ public final class UserDataMapper {
 			attempt(warnings, "profile", () -> {
 				facade.setProfileName(p.name());
 				facade.setDiet(p.diet());
+				if (p.restrictions() != null) {
+					facade.setRestrictions(new java.util.TreeSet<>(p.restrictions()));
+				}
 				for (String allergy : orEmpty(p.allergies())) {
 					facade.addAllergy(allergy);
 				}
 				facade.setCalorieGoal(p.calories());
 				facade.setMacroGoals(p.protein(), p.carbs(), p.fat());
+				// each of these is checked on its own so one bad value cannot drop the rest
+				attempt(warnings, "profile email", () -> facade.setProfileEmail(p.email()));
+				attempt(warnings, "date of birth", () -> facade.setBirthDate(p.birthDate()));
+				attempt(warnings, "sex", () -> facade.setSex(p.sex()));
+				attempt(warnings, "weight and height", () -> facade.setBody(p.weightKg(), p.heightCm()));
+				facade.setActivity(com.mealton.profile.Activity.fromText(p.activity()));
+				facade.setGoal(com.mealton.profile.Goal.fromText(p.goal()));
+				facade.setTrackMacros(p.tracksMacros());
 			});
 		}
 

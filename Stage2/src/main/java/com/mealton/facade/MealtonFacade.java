@@ -36,7 +36,10 @@ import com.mealton.plan.MealEntry;
 import com.mealton.plan.PlanService;
 import com.mealton.plan.PrepPlanner;
 import com.mealton.plan.WeekPlan;
+import com.mealton.profile.Activity;
+import com.mealton.profile.Goal;
 import com.mealton.profile.ProfileService;
+import com.mealton.profile.TargetCalculator;
 import com.mealton.profile.UserProfile;
 import com.mealton.recipe.HttpFetcher;
 import com.mealton.recipe.Recipe;
@@ -638,6 +641,75 @@ public class MealtonFacade {
 
 	public UserProfile setMacroGoals(int protein, int carbs, int fat) {
 		return profile.setMacroGoals(protein, carbs, fat);
+	}
+
+	public UserProfile setProfileEmail(String email) {
+		return profile.setEmail(email);
+	}
+
+	/** Date of birth from text such as "Mar 4, 2005" (blank clears it). */
+	public UserProfile setBirthDate(String text) {
+		return profile.setBirthDate(text);
+	}
+
+	/** "female", "male" or blank. */
+	public UserProfile setSex(String sex) {
+		return profile.setSex(sex);
+	}
+
+	/** Weight in kg and height in cm (0 = not set). */
+	public UserProfile setBody(double weightKg, int heightCm) {
+		return profile.setBody(weightKg, heightCm);
+	}
+
+	public UserProfile setActivity(Activity activity) {
+		return profile.setActivity(activity);
+	}
+
+	public UserProfile setGoal(Goal goal) {
+		return profile.setGoal(goal);
+	}
+
+	/** All dietary restrictions at once (vegetarian, dairy-free, halal ...). */
+	public UserProfile setRestrictions(java.util.Set<String> restrictions) {
+		return profile.setRestrictions(restrictions);
+	}
+
+	/** Switches the macro tracker on or off everywhere. */
+	public UserProfile setTrackMacros(boolean track) {
+		return profile.setTrackMacros(track);
+	}
+
+	/** True unless the user turned macro tracking off on the Profile page. */
+	public boolean tracksMacros() {
+		return profile.get().trackMacros();
+	}
+
+	/**
+	 * The calorie and macro targets Mealton suggests from the profile, or empty
+	 * when date of birth, weight or height are missing.
+	 */
+	public java.util.Optional<TargetCalculator.Suggestion> suggestedTargets() {
+		return TargetCalculator.suggest(profile.get());
+	}
+
+	/** Puts the suggested targets into the profile; false if none can be made. */
+	public boolean useSuggestedTargets() {
+		java.util.Optional<TargetCalculator.Suggestion> s = suggestedTargets();
+		if (s.isEmpty()) {
+			return false;
+		}
+		profile.replace(profile.get().withCalorieGoal(s.get().calories()).withMacroGoals(s.get().protein(),
+				s.get().carbs(), s.get().fat()));
+		return true;
+	}
+
+	/**
+	 * Saves a whole edited profile in one step (the Profile page's Save button).
+	 * Throws IllegalArgumentException if a value is invalid; nothing changes then.
+	 */
+	public UserProfile saveProfile(UserProfile updated) {
+		return profile.replace(updated);
 	}
 
 	public UserProfile resetProfile() {

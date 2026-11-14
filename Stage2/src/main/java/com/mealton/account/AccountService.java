@@ -209,6 +209,40 @@ public class AccountService {
 	}
 
 	/**
+	 * Permanently deletes an account: its login, its remember-me token and its
+	 * whole data folder (profile, plan, pantry, shopping list, diary, own recipes
+	 * and photos). It cannot be undone.
+	 *
+	 * @throws IllegalArgumentException if there is no such account
+	 */
+	public synchronized void deleteAccount(String username) {
+		String name = checkUsername(username);
+		List<Entry> all = read();
+		Entry entry = find(all, name);
+		if (entry == null) {
+			throw new IllegalArgumentException("Unknown account.");
+		}
+		Path folder = userDirectory(name);
+		all.remove(entry);
+		write(all);
+		deleteTree(folder);
+	}
+
+	private static void deleteTree(Path folder) {
+		if (!Files.exists(folder)) {
+			return;
+		}
+		try (java.util.stream.Stream<Path> walk = Files.walk(folder)) {
+			for (Path p : walk.sorted(java.util.Comparator.reverseOrder()).toList()) {
+				Files.deleteIfExists(p);
+			}
+		} catch (IOException e) {
+			throw new IllegalStateException(
+					"The account was removed but some of its files could not be deleted: " + e.getMessage());
+		}
+	}
+
+	/**
 	 * The folder for one user's saved data. The name is checked, so it can never
 	 * point outside the data folder. An email's "@" becomes "_at_" (usernames
 	 * cannot contain dots, so the two kinds can never clash).

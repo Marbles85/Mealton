@@ -34,11 +34,15 @@ public class MainWindow extends StackPane {
 	private final Sidebar sidebar;
 
 	/**
-	 * @param username the logged-in user
-	 * @param onSave   saves the user's data; called whenever the user changes page
-	 * @param onLogout called when the user presses "Log out"
+	 * @param username        the logged-in user
+	 * @param onSave          saves the user's data; called whenever the user
+	 *                        changes page
+	 * @param onLogout        called when the user presses "Log out"
+	 * @param onDeleteAccount called after the user confirmed "Delete forever" on
+	 *                        the Profile page
 	 */
-	public MainWindow(MealtonFacade facade, String username, Runnable onSave, Runnable onLogout) {
+	public MainWindow(MealtonFacade facade, String username, Runnable onSave, Runnable onLogout,
+			Runnable onDeleteAccount) {
 		this.facade = facade;
 		this.username = username;
 		this.onSave = onSave;
@@ -47,7 +51,7 @@ public class MainWindow extends StackPane {
 		RecipeBrowserView recipesView = new RecipeBrowserView(facade, pantryView::refreshAll);
 		MealPlanView planView = new MealPlanView(facade, pantryView::refreshAll);
 		FoodDiaryView diaryView = new FoodDiaryView(facade);
-		profileView = new ProfileView(facade);
+		profileView = new ProfileView(facade, settings, username, onLogout, onDeleteAccount, this::refreshSidebarInfo);
 		pages.put(RECIPES_PAGE, recipesView);
 		pages.put(LOG_PAGE, diaryView);
 		pages.put(PLAN_PAGE, planView);

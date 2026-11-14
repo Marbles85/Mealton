@@ -1,0 +1,65 @@
+/* Styles for the Profile page (loaded by ProfileView). */
+.pf-page { -fx-background-color: #f6f8f4; }
+.pf-title { -fx-font-size: 28px; -fx-font-weight: bold; -fx-text-fill: #25362b; }
+.pf-sub { -fx-font-size: 13px; -fx-text-fill: #6b7d70; }
+.pf-scroll { -fx-background-color: transparent; -fx-background-insets: 0; -fx-padding: 0; }
+.pf-scroll > .viewport { -fx-background-color: transparent; }
+.pf-card { -fx-background-color: white; -fx-background-radius: 16; -fx-border-color: #e3e8e1; -fx-border-radius: 16; -fx-padding: 20; }
+.pf-h2 { -fx-font-size: 17px; -fx-font-weight: bold; -fx-text-fill: #25362b; }
+.pf-label { -fx-font-size: 13px; -fx-font-weight: bold; -fx-text-fill: #3e4a42; }
+.pf-muted { -fx-font-size: 12px; -fx-text-fill: #5b6660; }
+.pf-text { -fx-font-size: 13px; -fx-text-fill: #3e4a42; }
+.pf-input { -fx-background-color: white; -fx-background-radius: 10; -fx-border-color: #cdd6ca; -fx-border-radius: 10; -fx-padding: 0 12 0 12; -fx-pref-height: 44; -fx-min-height: 44; -fx-text-fill: #1f2a22; }
+.pf-input:focused { -fx-border-color: #4f6b52; }
+.pf-input-error, .pf-input-error:focused { -fx-border-color: #b3261e; -fx-border-width: 2; }
+.pf-combo { -fx-background-color: white; -fx-background-radius: 10; -fx-border-color: #cdd6ca; -fx-border-radius: 10; -fx-pref-height: 44; -fx-min-height: 44; }
+.pf-error { -fx-font-size: 12px; -fx-font-weight: bold; -fx-text-fill: #b3261e; }
+.pf-pill { -fx-background-color: white; -fx-background-radius: 999; -fx-border-color: #cdd6ca; -fx-border-radius: 999; -fx-text-fill: #3e4a42; -fx-padding: 0 14 0 14; -fx-min-height: 40; -fx-cursor: hand; -fx-font-size: 13px; }
+.pf-pill:hover { -fx-background-color: #eef3ec; }
+.pf-pill-on, .pf-pill-on:hover { -fx-background-color: #4f6b52; -fx-border-color: #4f6b52; -fx-text-fill: white; -fx-font-weight: bold; }
+.pf-allergy { -fx-background-color: #fbedea; -fx-background-radius: 999; -fx-padding: 0 4 0 12; -fx-min-height: 36; }
+.pf-allergy-text { -fx-text-fill: #8a2c1e; -fx-font-weight: bold; -fx-font-size: 13px; }
+.pf-allergy-x { -fx-background-color: transparent; -fx-text-fill: #8a2c1e; -fx-font-size: 16px; -fx-cursor: hand; -fx-padding: 0 8 0 8; }
+.pf-add-allergy { -fx-background-color: white; -fx-background-radius: 999; -fx-border-color: #cdd6ca; -fx-border-radius: 999; -fx-border-style: segments(4, 3); -fx-padding: 0 12 0 12; -fx-pref-height: 36; -fx-min-height: 36; -fx-pref-width: 150; -fx-font-size: 13px; }
+.pf-save { -fx-background-color: #4f6b52; -fx-background-radius: 12; -fx-text-fill: white; -fx-font-weight: bold; -fx-font-size: 15px; -fx-padding: 0 24 0 24; -fx-min-height: 48; -fx-cursor: hand; }
+.pf-save:hover { -fx-background-color: #3f5a43; }
+.pf-status { -fx-font-size: 14px; -fx-text-fill: #5b6660; }
+.pf-status-ok { -fx-font-size: 14px; -fx-text-fill: #2e7d32; -fx-font-weight: bold; }
+.pf-status-bad { -fx-font-size: 14px; -fx-text-fill: #b3261e; -fx-font-weight: bold; }
+.pf-mode { -fx-background-color: white; -fx-background-radius: 12; -fx-border-color: #dce3d9; -fx-border-radius: 12; -fx-padding: 10; -fx-cursor: hand; }
+.pf-mode:hover { -fx-background-color: #f7faf6; }
+.pf-mode-on, .pf-mode-on:hover { -fx-background-color: #f1f4ef; -fx-border-color: #4f6b52; -fx-border-width: 2; -fx-padding: 9; }
+.pf-mode-preview { -fx-background-color: #f1f4ef; -fx-background-radius: 8; }
+.pf-mode-side { -fx-background-color: white; -fx-border-color: transparent #dce3d9 transparent transparent; }
+.pf-mode-bar { -fx-background-color: #dce3d9; -fx-background-radius: 2; }
+.pf-mode-bar-on { -fx-background-color: #4f6b52; -fx-background-radius: 4; }
+.pf-mode-dot { -fx-background-color: #4f6b52; -fx-background-radius: 9; -fx-border-color: white; -fx-border-width: 2; -fx-border-radius: 9; }
+.pf-mode-name { -fx-font-weight: bold; -fx-font-size: 14px; -fx-text-fill: #1f2a22; }
+.pf-switch { -fx-background-color: #b9c2b6; -fx-background-radius: 14; }
+.pf-switch-on { -fx-background-color: #4f6b52; -fx-background-radius: 14; }
+.pf-note { -fx-background-color: #f1f4ef; -fx-background-radius: 10; -fx-padding: 10 12 10 12; -fx-text-fill: #3e4a42; -fx-font-size: 13px; }
+.pf-sum { -fx-font-size: 13px; -fx-text-fill: #3e4a42; }
+.pf-sum-off { -fx-font-size: 13px; -fx-text-fill: #8a4208; }
+.pf-sug { -fx-background-color: #4f6b52; -fx-background-radius: 16; -fx-padding: 24; }
+.pf-sug-h { -fx-font-size: 14px; -fx-font-weight: bold; -fx-text-fill: #e6ede2; }
+.pf-sug-big { -fx-font-size: 44px; -fx-font-weight: bold; -fx-text-fill: white; }
+.pf-sug-unit { -fx-font-size: 18px; -fx-font-weight: bold; -fx-text-fill: white; }
+.pf-sug-small { -fx-font-size: 13px; -fx-text-fill: #e6ede2; }
+.pf-sug-tile { -fx-background-color: rgba(255,255,255,0.14); -fx-background-radius: 10; -fx-padding: 10; }
+.pf-sug-tile-n { -fx-font-size: 16px; -fx-font-weight: bold; -fx-text-fill: white; }
+.pf-sug-btn { -fx-background-color: white; -fx-background-radius: 10; -fx-text-fill: #2f4a34; -fx-font-weight: bold; -fx-min-height: 44; -fx-cursor: hand; }
+.pf-sug-btn:disabled { -fx-opacity: 0.85; }
+.pf-alert-warn { -fx-background-color: #fcefe2; -fx-background-radius: 14; -fx-padding: 14 16 14 16; -fx-text-fill: #6e3606; -fx-font-size: 14px; }
+.pf-alert-red { -fx-font-size: 13px; -fx-text-fill: #b3261e; }
+.pf-why-icon { -fx-background-color: #e6ede2; -fx-background-radius: 18; -fx-alignment: center; -fx-text-fill: #2f4a34; -fx-font-size: 16px; }
+.pf-avatar { -fx-background-color: #c5d5b8; -fx-background-radius: 22; -fx-alignment: center; -fx-text-fill: #2f4a34; -fx-font-weight: bold; }
+.pf-outline-btn { -fx-background-color: white; -fx-background-radius: 10; -fx-border-color: #4f6b52; -fx-border-radius: 10; -fx-text-fill: #2f4a34; -fx-font-weight: bold; -fx-min-height: 44; -fx-cursor: hand; }
+.pf-outline-btn:hover { -fx-background-color: #f1f4ef; }
+.pf-del-link { -fx-background-color: transparent; -fx-text-fill: #b3261e; -fx-font-weight: bold; -fx-min-height: 44; -fx-cursor: hand; }
+.pf-del-box { -fx-background-color: #fbedea; -fx-background-radius: 12; -fx-border-color: #e3b7ae; -fx-border-radius: 12; -fx-padding: 14; }
+.pf-del-title { -fx-font-size: 14px; -fx-font-weight: bold; -fx-text-fill: #8a2c1e; }
+.pf-del-text { -fx-font-size: 13px; -fx-text-fill: #6e2418; }
+.pf-del-input { -fx-background-color: white; -fx-background-radius: 8; -fx-border-color: #e3b7ae; -fx-border-radius: 8; -fx-pref-height: 40; -fx-min-height: 40; -fx-font-weight: bold; }
+.pf-del-keep { -fx-background-color: white; -fx-background-radius: 10; -fx-border-color: #dce3d9; -fx-border-radius: 10; -fx-text-fill: #3e4a42; -fx-font-weight: bold; -fx-min-height: 44; -fx-cursor: hand; }
+.pf-del-go { -fx-background-color: #b3261e; -fx-background-radius: 10; -fx-text-fill: white; -fx-font-weight: bold; -fx-min-height: 44; -fx-cursor: hand; }
+.pf-del-go:disabled { -fx-background-color: #e8c9c3; -fx-opacity: 1; }

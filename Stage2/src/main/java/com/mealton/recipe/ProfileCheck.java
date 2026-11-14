@@ -5,7 +5,6 @@ import java.util.List;
 import java.util.Locale;
 import java.util.Set;
 
-import com.mealton.profile.Diet;
 import com.mealton.profile.UserProfile;
 
 /**
@@ -14,8 +13,9 @@ import com.mealton.profile.UserProfile;
  * <ul>
  * <li>Allergies: an ingredient whose name contains an allergy word ("peanut"
  * matches "peanut butter").</li>
- * <li>Diets: vegetarian, vegan and pescatarian are checked with simple word
- * lists. Other diets (gluten-free, keto) cannot be judged from ingredient
+ * <li>Diets: vegetarian, vegan, pescatarian, dairy-free and halal are checked
+ * with simple word lists (every chosen restriction is checked). Other diets
+ * (gluten-free, high-protein, low-carb, keto) cannot be judged from ingredient
  * names, so they are not checked.</li>
  * </ul>
  * This is a helpful warning, not a safety guarantee: it only knows the words in
@@ -29,6 +29,10 @@ public final class ProfileCheck {
 			"crab", "lobster", "sardine", "tilapia", "trout", "squid", "oyster", "mussel");
 	private static final Set<String> ANIMAL_PRODUCTS = Set.of("milk", "cheese", "butter", "cream", "yogurt", "yoghurt",
 			"egg", "honey", "ghee", "mayonnaise", "gelatin", "whey");
+	private static final Set<String> DAIRY = Set.of("milk", "cheese", "butter", "cream", "yogurt", "yoghurt", "ghee",
+			"whey", "custard");
+	private static final Set<String> NOT_HALAL = Set.of("pork", "bacon", "ham", "prosciutto", "salami", "chorizo",
+			"lard", "gelatin", "wine", "beer", "rum", "brandy", "whiskey", "vodka");
 	/**
 	 * Plant-based foods that contain a dairy word, so they must not be flagged for
 	 * vegans.
@@ -53,26 +57,32 @@ public final class ProfileCheck {
 					warnings.add("Allergy: " + name + " contains " + allergy);
 				}
 			}
-			String problem = dietProblem(name, profile.diet());
-			if (problem != null) {
-				warnings.add(problem);
+			for (String restriction : profile.restrictions()) {
+				String problem = dietProblem(name, restriction);
+				if (problem != null && !warnings.contains(problem)) {
+					warnings.add(problem);
+				}
 			}
 		}
 		return warnings;
 	}
 
-	private static String dietProblem(String ingredient, Diet diet) {
+	private static String dietProblem(String ingredient, String restriction) {
 		boolean plantBased = PLANT_BASED.stream().anyMatch(p -> containsPhrase(ingredient, p));
 		boolean meat = containsAny(ingredient, MEAT);
 		boolean fish = containsAny(ingredient, FISH);
 		boolean animalProduct = !plantBased && containsAny(ingredient, ANIMAL_PRODUCTS);
-		switch (diet) {
-		case VEGETARIAN:
+		switch (restriction) {
+		case "vegetarian":
 			return meat || fish ? "Diet: " + ingredient + " is not vegetarian" : null;
-		case PESCATARIAN:
+		case "pescatarian":
 			return meat ? "Diet: " + ingredient + " is not pescatarian" : null;
-		case VEGAN:
+		case "vegan":
 			return meat || fish || animalProduct ? "Diet: " + ingredient + " is not vegan" : null;
+		case "dairy-free":
+			return !plantBased && containsAny(ingredient, DAIRY) ? "Diet: " + ingredient + " is not dairy-free" : null;
+		case "halal":
+			return containsAny(ingredient, NOT_HALAL) ? "Diet: " + ingredient + " is not halal" : null;
 		default:
 			return null;
 		}

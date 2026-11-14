@@ -13,8 +13,25 @@ public record UserData(int version, ProfileRow profile, List<PantryRow> pantry, 
 
 	public static final int CURRENT_VERSION = 1;
 
+	/**
+	 * The profile. Files saved before the Profile page was rebuilt only have the
+	 * first seven values; the rest then load as "not set" (restrictions as null,
+	 * trackMacros as true through {@link #tracksMacros()}).
+	 */
 	public record ProfileRow(String name, String diet, List<String> allergies, int calories, int protein, int carbs,
-			int fat) {
+			int fat, String email, String birthDate, String sex, double weightKg, int heightCm, String activity,
+			String goal, List<String> restrictions, Boolean trackMacros) {
+
+		/** The old seven-value form. */
+		public ProfileRow(String name, String diet, List<String> allergies, int calories, int protein, int carbs,
+				int fat) {
+			this(name, diet, allergies, calories, protein, carbs, fat, "", "", "", 0, 0, null, null, null, null);
+		}
+
+		/** Macro tracking is on unless the file says it was switched off. */
+		public boolean tracksMacros() {
+			return trackMacros == null || trackMacros;
+		}
 	}
 
 	public record PantryRow(String name, double quantity, String unit, String category, String expires) {
