@@ -1,5 +1,7 @@
 package com.mealton.gui;
 
+import java.util.function.DoubleSupplier;
+
 import javafx.geometry.Point2D;
 import javafx.scene.Cursor;
 import javafx.scene.Node;
@@ -11,10 +13,11 @@ import javafx.scene.paint.Color;
 import javafx.scene.shape.Rectangle;
 
 /**
- * A transparent layer on top of the pages that holds the AI chat. Two modes
- * (see {@link UiSettings}): "roam" - a round bubble you can drag anywhere (it
- * snaps to the left or right edge) and click to open; "sidebar" - no bubble;
- * the sidebar's "Ask Mealton" tab opens the same panel next to the sidebar.
+ * A transparent layer over the whole window (sidebar included) that holds the
+ * AI chat. Two modes (see {@link UiSettings}): "roam" - a round bubble you can
+ * drag anywhere (it snaps to the left or right edge) and click to open;
+ * "sidebar" - no bubble; the sidebar's "Ask Mealton" tab opens the same panel
+ * next to the sidebar.
  */
 public class ChatLayer extends Pane {
 	private static final double SIZE = 64;
@@ -22,6 +25,7 @@ public class ChatLayer extends Pane {
 
 	private final UiSettings settings;
 	private final Runnable onOpenChanged;
+	private final DoubleSupplier leftInset; // width of the sidebar, so the sidebar-mode panel opens beside it
 	private final StackPane panel = new StackPane();
 	private final StackPane bubble = new StackPane();
 	private final Label hint = new Label("Drag me anywhere");
@@ -42,10 +46,12 @@ public class ChatLayer extends Pane {
 	 * @param chat          the chat panel to show
 	 * @param onOpenChanged called when the panel opens or closes (so the sidebar
 	 *                      tab can update)
+	 * @param leftInset     gives the current sidebar width
 	 */
-	public ChatLayer(Node chat, UiSettings settings, Runnable onOpenChanged) {
+	public ChatLayer(Node chat, UiSettings settings, Runnable onOpenChanged, DoubleSupplier leftInset) {
 		this.settings = settings;
 		this.onOpenChanged = onOpenChanged;
+		this.leftInset = leftInset;
 		this.mode = settings.chatMode();
 		this.side = settings.bubbleSide();
 		this.restY = settings.bubbleY();
@@ -94,7 +100,7 @@ public class ChatLayer extends Pane {
 				settings.setBubblePosition(side, restY);
 				dragging = false;
 				bubble.setCursor(Cursor.HAND);
-			} else if (moved == false) {
+			} else if (!moved) {
 				showHint = false;
 				setOpen(!open);
 			}
@@ -196,7 +202,9 @@ public class ChatLayer extends Pane {
 			double panelY = Math.max(MARGIN, Math.min(h - panelH - MARGIN, rest + SIZE - panelH));
 			panel.resizeRelocate(panelX, panelY, panelW, panelH);
 		} else {
-			panel.resizeRelocate(12, 12, Math.max(0, Math.min(400, w - 24)), Math.max(0, h - 24));
+			// sidebar mode: open just to the right of the sidebar
+			double x = leftInset.getAsDouble() + 12;
+			panel.resizeRelocate(x, 12, Math.max(0, Math.min(400, w - x - 12)), Math.max(0, h - 24));
 		}
 	}
 }
