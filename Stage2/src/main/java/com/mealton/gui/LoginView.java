@@ -13,6 +13,7 @@ import javafx.scene.control.CheckBox;
 import javafx.scene.control.Hyperlink;
 import javafx.scene.control.Label;
 import javafx.scene.control.PasswordField;
+import javafx.scene.control.ScrollPane;
 import javafx.scene.control.TextField;
 import javafx.scene.layout.HBox;
 import javafx.scene.layout.Priority;
@@ -69,8 +70,15 @@ public class LoginView extends HBox {
 		left.setMinWidth(300);
 
 		againBox = field("Confirm password", again);
-		StackPane right = new StackPane(buildForm());
-		right.setPadding(new Insets(48, 24, 48, 24));
+
+		// The form sits in a scroll area, so nothing is ever cut off on a small window.
+		// When it fits, it stays centred.
+		StackPane holder = new StackPane(buildForm());
+		holder.setPadding(new Insets(32, 24, 32, 24));
+		ScrollPane right = new ScrollPane(holder);
+		right.setFitToWidth(true);
+		right.setFitToHeight(true);
+		right.setHbarPolicy(ScrollPane.ScrollBarPolicy.NEVER);
 		HBox.setHgrow(right, Priority.ALWAYS);
 
 		getChildren().addAll(left, right);
@@ -179,7 +187,7 @@ public class LoginView extends HBox {
 		heading.getStyleClass().add("form-heading");
 		subheading.getStyleClass().add("muted");
 		wrap(subheading);
-		VBox titles = new VBox(6, heading, subheading);
+		VBox titles = new VBox(4, heading, subheading);
 
 		loginTab.getStyleClass().add("seg-button");
 		registerTab.getStyleClass().add("seg-button");
@@ -227,7 +235,7 @@ public class LoginView extends HBox {
 		switchRow.setAlignment(Pos.CENTER);
 		switchLink.setOnAction(e -> switchMode(!loginMode));
 
-		VBox form = new VBox(20, titles, tabs, field("Email", user), field("Password", password), againBox, optionsRow,
+		VBox form = new VBox(14, titles, tabs, field("Email", user), field("Password", password), againBox, optionsRow,
 				submit, messageBox, switchRow);
 		form.setMaxWidth(400);
 		form.setAlignment(Pos.CENTER_LEFT);
@@ -237,7 +245,7 @@ public class LoginView extends HBox {
 	private static VBox field(String label, Node control) {
 		Label l = new Label(label);
 		l.getStyleClass().add("field-label");
-		return new VBox(8, l, control);
+		return new VBox(6, l, control);
 	}
 
 	// ---------- behaviour ----------
@@ -262,8 +270,7 @@ public class LoginView extends HBox {
 	private void showMode(boolean login) {
 		loginMode = login;
 		heading.setText(login ? "Welcome back" : "Create your account");
-		subheading.setText(login ? "Log in to see this week\u2019s plan."
-				: "Use your email address and choose a password \u2014 we\u2019ll set up your profile next.");
+		subheading.setText(login ? "Log in to see this week\u2019s plan." : "Use your email and choose a password.");
 		user.setPromptText("you@example.com");
 		password.setPromptText(login ? "Password" : "At least " + AccountService.MIN_PASSWORD_LENGTH + " characters");
 
