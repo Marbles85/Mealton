@@ -22,11 +22,11 @@ import javafx.scene.layout.VBox;
 import javafx.scene.paint.Color;
 
 /**
- * The first screen: log in, or create an account. Each user gets their own
- * profile, pantry, recipes, meal plan and food diary. Passwords are checked by
- * {@link AccountService} and never stored as typed. "Remember me" keeps a
- * random token on this computer (never the password) and fills the password box
- * with dots.
+ * The first screen: log in, or create an account with an email address. Each
+ * user gets their own profile, pantry, recipes, meal plan and food diary.
+ * Passwords are checked by {@link AccountService} and never stored as typed.
+ * "Remember me" keeps a random token on this computer (never the password) and
+ * fills the password box with dots.
  */
 public class LoginView extends HBox {
 	/** Shown in the password box when "Remember me" has a saved login. */
@@ -57,7 +57,7 @@ public class LoginView extends HBox {
 	private final Hyperlink switchLink = new Hyperlink();
 
 	/**
-	 * @param onLoggedIn called with the username after a successful login or
+	 * @param onLoggedIn called with the login name after a successful login or
 	 *                   sign-up
 	 */
 	public LoginView(AccountService accounts, Consumer<String> onLoggedIn) {
@@ -75,15 +75,8 @@ public class LoginView extends HBox {
 
 		getChildren().addAll(left, right);
 		showMode(true);
+		fillRemembered();
 
-		// "Remember me": fill in the saved username and show dots in the password box
-		String rememberedUser = UiSettings.rememberedUser();
-		if (!rememberedUser.isEmpty() && !UiSettings.rememberedToken().isEmpty()) {
-			user.setText(rememberedUser);
-			setPasswordBox(SAVED_MASK);
-			usingSavedLogin = true;
-			remember.setSelected(true);
-		}
 		// typing anything else switches back to a normal password login
 		password.textProperty().addListener((obs, oldText, newText) -> {
 			if (!filling) {
@@ -102,6 +95,19 @@ public class LoginView extends HBox {
 				Platform.runLater(password::selectAll);
 			}
 		});
+	}
+
+	/**
+	 * "Remember me": fills in the saved email and shows dots in the password box.
+	 */
+	private void fillRemembered() {
+		String rememberedUser = UiSettings.rememberedUser();
+		if (!rememberedUser.isEmpty() && !UiSettings.rememberedToken().isEmpty()) {
+			user.setText(rememberedUser);
+			setPasswordBox(SAVED_MASK);
+			usingSavedLogin = true;
+			remember.setSelected(true);
+		}
 	}
 
 	private void setPasswordBox(String text) {
@@ -183,8 +189,8 @@ public class LoginView extends HBox {
 		HBox.setHgrow(registerTab, Priority.ALWAYS);
 		HBox tabs = new HBox(4, loginTab, registerTab);
 		tabs.getStyleClass().add("seg-bar");
-		loginTab.setOnAction(e -> showMode(true));
-		registerTab.setOnAction(e -> showMode(false));
+		loginTab.setOnAction(e -> switchMode(true));
+		registerTab.setOnAction(e -> switchMode(false));
 
 		user.setOnAction(e -> password.requestFocus());
 		password.setOnAction(e -> {
@@ -219,10 +225,10 @@ public class LoginView extends HBox {
 		switchNote.getStyleClass().add("muted");
 		HBox switchRow = new HBox(4, switchNote, switchLink);
 		switchRow.setAlignment(Pos.CENTER);
-		switchLink.setOnAction(e -> showMode(!loginMode));
+		switchLink.setOnAction(e -> switchMode(!loginMode));
 
-		VBox form = new VBox(20, titles, tabs, field("Username or email", user), field("Password", password), againBox,
-				optionsRow, submit, messageBox, switchRow);
+		VBox form = new VBox(20, titles, tabs, field("Email", user), field("Password", password), againBox, optionsRow,
+				submit, messageBox, switchRow);
 		form.setMaxWidth(400);
 		form.setAlignment(Pos.CENTER_LEFT);
 		return form;
@@ -235,22 +241,36 @@ public class LoginView extends HBox {
 	}
 
 	// ---------- behaviour ----------
+	/**
+	 * Switches between Log in and Register and clears the text boxes, so nothing
+	 * typed carries over.
+	 */
+	private void switchMode(boolean login) {
+		if (login == loginMode) {
+			return;
+		}
+		usingSavedLogin = false;
+		user.clear();
+		setPasswordBox("");
+		again.clear();
+		showMode(login);
+		if (login) {
+			fillRemembered(); // bring back the saved email and dots, if "Remember me" has a saved login
+		}
+	}
+
 	private void showMode(boolean login) {
 		loginMode = login;
 		heading.setText(login ? "Welcome back" : "Create your account");
 		subheading.setText(login ? "Log in to see this week\u2019s plan."
-				: "Pick a username or use your email, and a password \u2014 we\u2019ll set up your profile next.");
-		user.setPromptText("Username or email");
+				: "Use your email address and choose a password \u2014 we\u2019ll set up your profile next.");
+		user.setPromptText("you@example.com");
 		password.setPromptText(login ? "Password" : "At least " + AccountService.MIN_PASSWORD_LENGTH + " characters");
 
 		loginTab.getStyleClass().remove("seg-button-on");
 		registerTab.getStyleClass().remove("seg-button-on");
 		(login ? loginTab : registerTab).getStyleClass().add("seg-button-on");
 
-		if (!login && usingSavedLogin) { // never carry the saved-login dots into Register
-			usingSavedLogin = false;
-			setPasswordBox("");
-		}
 		againBox.setVisible(!login);
 		againBox.setManaged(!login);
 		optionsRow.setVisible(login);
@@ -271,7 +291,7 @@ public class LoginView extends HBox {
 			} else if (loginMode) {
 				name = accounts.logIn(user.getText(), password.getText());
 			} else {
-				name = accounts.signUp(user.getText(), password.getText(), again.getText());
+				name = accounts.signUp(AccountService.checkEmail(user.getText()), password.getText(), again.getText());
 			}
 		} catch (IllegalArgumentException | IllegalStateException e) {
 			if (viaSavedLogin) { // the saved login no longer works: forget it and ask for the password
