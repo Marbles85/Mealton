@@ -4,87 +4,104 @@ import java.util.LinkedHashMap;
 import java.util.Map;
 
 import com.mealton.facade.MealtonFacade;
+import com.mealton.profile.UserProfile;
 
-import javafx.geometry.Insets;
-import javafx.geometry.Pos;
 import javafx.scene.Node;
-import javafx.scene.control.Button;
-import javafx.scene.control.Label;
 import javafx.scene.layout.BorderPane;
-import javafx.scene.layout.HBox;
-import javafx.scene.layout.Priority;
-import javafx.scene.layout.Region;
+import javafx.scene.layout.StackPane;
 
 /**
- * Main window: a header with page navigation and the current page in the centre
- * (Stage 1: MainWindow).
+ * Main window: the sidebar on the left, the current page in the middle, and the
+ * AI chat floating on top (Stage 1: MainWindow).
  */
 public class MainWindow extends BorderPane {
 	public static final String RECIPES_PAGE = "Recipes";
-	public static final String PANTRY_PAGE = "Pantry & List";
-	public static final String CHAT_PAGE = "Mealton Chat";
-	public static final String MEAL_PLAN_PAGE = "Meal Plan";
-	public static final String FOOD_DIARY_PAGE = "Food Diary";
+	public static final String LOG_PAGE = "Log food";
+	public static final String PLAN_PAGE = "Meal plan";
+	public static final String PANTRY_PAGE = "Pantry & list";
 	public static final String PROFILE_PAGE = "Profile";
 
 	private final Map<String, Node> pages = new LinkedHashMap<>();
 
+	private final MealtonFacade facade;
+	private final String username;
 	private final Runnable onSave;
+	private final UiSettings settings = new UiSettings();
 	private final ProfileView profileView;
+	private final BorderPane pageHost = new BorderPane();
+	private final ChatLayer chatLayer;
+	private final Sidebar sidebar;
 
 	/**
-	 * @param username the logged-in user (shown in the header)
+	 * @param username the logged-in user
 	 * @param onSave   saves the user's data; called whenever the user changes page
 	 * @param onLogout called when the user presses "Log out"
 	 */
 	public MainWindow(MealtonFacade facade, String username, Runnable onSave, Runnable onLogout) {
+		this.facade = facade;
+		this.username = username;
 		this.onSave = onSave;
+
 		PantryShoppingView pantryView = new PantryShoppingView(facade);
 		RecipeBrowserView recipesView = new RecipeBrowserView(facade, pantryView::refreshAll);
 		MealPlanView planView = new MealPlanView(facade, pantryView::refreshAll);
 		FoodDiaryView diaryView = new FoodDiaryView(facade);
 		profileView = new ProfileView(facade);
-
-		// the order here is the order of the buttons in the header
 		pages.put(RECIPES_PAGE, recipesView);
+		pages.put(LOG_PAGE, diaryView);
+		pages.put(PLAN_PAGE, planView);
 		pages.put(PANTRY_PAGE, pantryView);
-		// after the AI agent uses a tool, the pantry/shopping, recipe, plan and diary
-		// pages reload what changed
-		pages.put(CHAT_PAGE, new ChatView(facade, () -> {
+		pages.put(PROFILE_PAGE, profileView);
+
+		// after the AI agent uses a tool, the pages reload what changed
+		ChatView chat = new ChatView(facade, () -> {
 			pantryView.refreshAll();
 			recipesView.refresh();
 			planView.refresh();
 			diaryView.refresh();
-		}));
-		pages.put(MEAL_PLAN_PAGE, planView);
-		pages.put(FOOD_DIARY_PAGE, diaryView);
-		pages.put(PROFILE_PAGE, profileView);
-
-		Label title = new Label("Mealton");
-		title.setStyle("-fx-font-size: 22px; -fx-font-weight: bold;");
-
-		HBox nav = new HBox(8);
-		nav.setAlignment(Pos.CENTER_LEFT);
-		for (String name : pages.keySet()) {
-			Button b = new Button(name);
-			b.setOnAction(e -> showPage(name));
-			nav.getChildren().add(b);
-		}
-		Region spacer = new Region();
-		HBox.setHgrow(spacer, Priority.ALWAYS);
-		Label signedIn = new Label("Signed in as " + username);
-		Button logout = new Button("Log out");
-		logout.setOnAction(e -> {
+			refreshSidebarInfo();
+		}, this::closeChat);
+		chatLayer = new ChatLayer(chat, settings, this::chatOpenChanged);
+		sidebar = new Sidebar(settings, this::showPage, chatLayer::toggle, () -> {
 			commitPending(); // keep anything typed on the Profile page
 			onLogout.run();
 		});
-		HBox header = new HBox(20, title, nav, spacer, signedIn, logout);
-		header.setAlignment(Pos.CENTER_LEFT);
-		header.setPadding(new Insets(10, 16, 10, 16));
-		header.setStyle("-fx-border-color: #dddddd; -fx-border-width: 0 0 1 0;");
-		setTop(header);
 
+		setLeft(sidebar);
+		setCenter(new StackPane(pageHost, chatLayer));
+
+		settings.addChatModeListener(this::applyChatMode);
+		applyChatMode();
 		show(RECIPES_PAGE);
+	}
+
+	private void closeChat() {
+		chatLayer.close();
+	}
+
+	private void chatOpenChanged() {
+		sidebar.setChatOpen(chatLayer.isOpen());
+	}
+
+	private void applyChatMode() {
+		chatLayer.setMode(settings.chatMode());
+		sidebar.setChatInSidebar(UiSettings.CHAT_SIDEBAR.equals(settings.chatMode()));
+	}
+
+	/**
+	 * The name in the sidebar, and the "about to expire" number on the Pantry item.
+	 */
+	private void refreshSidebarInfo() {
+		UserProfile profile = facade.getProfile();
+		String name = profile.name() == null || profile.name().isBlank() ? username : profile.name();
+		sidebar.setUser(name);
+		int expiringCount;
+		try {
+			expiringCount = facade.getExpiringItems().size();
+		} catch (RuntimeException e) {
+			expiringCount = 0;
+		}
+		sidebar.setExpiring(expiringCount);
 	}
 
 	/**
@@ -95,10 +112,7 @@ public class MainWindow extends BorderPane {
 		profileView.commitPending();
 	}
 
-	/**
-	 * Shows the page with this name in the centre of the window, and saves the
-	 * user's data first.
-	 */
+	/** Shows the page with this name, and saves the user's data first. */
 	public void showPage(String name) {
 		commitPending();
 		onSave.run(); // leaving a page is a good moment to save
@@ -108,8 +122,8 @@ public class MainWindow extends BorderPane {
 	private void show(String name) {
 		Node page = pages.get(name);
 		if (page != null) {
-			// the recipe and plan pages depend on the pantry, recipes and profile, so
-			// reload them every time they are opened
+			// these pages depend on the pantry, recipes and profile, so reload them every
+			// time they are opened
 			if (page instanceof RecipeBrowserView browser) {
 				browser.refresh();
 			} else if (page instanceof MealPlanView plan) {
@@ -117,7 +131,9 @@ public class MainWindow extends BorderPane {
 			} else if (page instanceof FoodDiaryView diary) {
 				diary.refresh();
 			}
-			setCenter(page);
+			pageHost.setCenter(page);
+			sidebar.setActive(name);
+			refreshSidebarInfo();
 		}
 	}
 }
