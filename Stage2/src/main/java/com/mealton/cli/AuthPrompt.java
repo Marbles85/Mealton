@@ -28,12 +28,12 @@ public final class AuthPrompt {
 	/**
 	 * Asks until someone logs in or signs up.
 	 *
-	 * @return the username, or empty when the user chose 'exit' (or the input
-	 *         ended)
+	 * @return the login name (email), or empty when the user chose 'exit' (or the
+	 *         input ended)
 	 */
 	public Optional<String> run() {
 		out.println("Welcome to Mealton. Log in, or create an account to get your own saved data.");
-		out.println("  login [username]    signup [username]    help    exit");
+		out.println("  login [email]    signup [email]    help    exit");
 		try {
 			while (true) {
 				out.print("mealton (not logged in)> ");
@@ -49,18 +49,18 @@ public final class AuthPrompt {
 				try {
 					switch (t.get(0).toLowerCase()) {
 					case "login" -> {
-						String user = t.size() > 1 ? t.get(1) : ask("Username: ");
+						String user = t.size() > 1 ? t.get(1) : ask("Email: ");
 						String password = askPassword("Password: ");
 						String name = accounts.logIn(user, password);
 						out.println("Welcome back, " + name + "!");
 						return Optional.of(name);
 					}
 					case "signup", "register" -> {
-						String user = t.size() > 1 ? t.get(1) : ask("Choose a username: ");
-						AccountService.checkUsername(user); // say so before asking for a password
+						String user = t.size() > 1 ? t.get(1) : ask("Email address: ");
+						AccountService.checkEmail(user); // say so before asking for a password
 						if (accounts.exists(user)) {
-							throw new IllegalArgumentException("The username '" + user.trim().toLowerCase()
-									+ "' is already taken. Choose another one.");
+							throw new IllegalArgumentException("The email '" + user.trim().toLowerCase()
+									+ "' is already registered. Use 'login' instead.");
 						}
 						String password = askPassword(
 								"Choose a password (at least " + AccountService.MIN_PASSWORD_LENGTH + " characters): ");
@@ -70,10 +70,10 @@ public final class AuthPrompt {
 						return Optional.of(name);
 					}
 					case "help" -> {
-						out.println("  login [username]   log in to your account");
+						out.println("  login [email]    log in to your account");
 						out.println(
-								"  signup [username]  create a new account (own profile, pantry, recipes, plan and diary)");
-						out.println("  exit               leave Mealton");
+								"  signup [email]   create a new account (own profile, pantry, recipes, plan and diary)");
+						out.println("  exit             leave Mealton");
 					}
 					case "exit", "quit" -> {
 						return Optional.empty();
