@@ -40,6 +40,7 @@ public class Recipe {
 	private double publicRating; // the rating other people gave it on its website (0 = unknown)
 	private int publicRatingCount; // how many people rated it
 	private int totalOverride; // total time in minutes typed by the cook, 0 = estimate it
+	private int freshOverride; // days the leftovers keep, typed by the cook, 0 = use the suggestion
 	private Nutrients aiEstimate; // Claude's estimate for the WHOLE recipe as written, null = none
 
 	public Recipe(String title, int servings, List<RecipeIngredient> ingredients, List<String> steps) {
@@ -292,6 +293,36 @@ public class Recipe {
 		this.totalOverride = minutes;
 	}
 
+	/**
+	 * Days the cook says the leftovers keep, or 0 when Mealton\u2019s suggestion is
+	 * used.
+	 */
+	public int getFreshOverride() {
+		return freshOverride;
+	}
+
+	public void setFreshOverride(int days) {
+		if (days < 0 || days > 60) {
+			throw new IllegalArgumentException("Leftovers can keep between 1 and 60 days.");
+		}
+		this.freshOverride = days;
+	}
+
+	/**
+	 * Mealton\u2019s estimate of how many days the leftovers keep, with the reason.
+	 */
+	public LeftoverFreshness.Suggestion suggestedFresh() {
+		return LeftoverFreshness.suggest(this);
+	}
+
+	/**
+	 * Days the leftovers keep: the cook\u2019s number if given, otherwise the
+	 * suggestion.
+	 */
+	public int freshDays() {
+		return freshOverride > 0 ? freshOverride : suggestedFresh().days();
+	}
+
 	/** Goes back to the automatic chips for one step. */
 	public void resetStepIngredients(int step) {
 		stepUses.remove(step);
@@ -352,6 +383,7 @@ public class Recipe {
 		other.stepUses.forEach((k, v) -> stepUses.put(k, new ArrayList<>(v)));
 		stepTimes = new java.util.TreeMap<>(other.stepTimes);
 		totalOverride = other.totalOverride;
+		freshOverride = other.freshOverride;
 		publicRating = other.publicRating;
 		publicRatingCount = other.publicRatingCount;
 		this.title = other.title;
@@ -389,6 +421,7 @@ public class Recipe {
 		stepUses.forEach((k, v) -> copy.stepUses.put(k, new ArrayList<>(v)));
 		copy.stepTimes.putAll(stepTimes);
 		copy.totalOverride = totalOverride;
+		copy.freshOverride = freshOverride;
 		copy.publicRating = publicRating;
 		copy.publicRatingCount = publicRatingCount;
 		copy.aiEstimate = aiEstimate == null ? null : aiEstimate.times((double) newServings / servings);

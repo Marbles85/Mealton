@@ -9,9 +9,19 @@ import java.util.List;
  */
 public record UserData(int version, ProfileRow profile, List<PantryRow> pantry, List<ShoppingRow> shopping,
 		List<LibraryRow> libraryRecipes, List<OwnRecipeRow> ownRecipes, List<PlanRow> plan, List<CalendarRow> calendar,
-		List<DiaryRow> diary) {
+		List<DiaryRow> diary, List<String> mealTags) {
 
 	public static final int CURRENT_VERSION = 1;
+
+	/**
+	 * The form used before meal tags were saved (they then load as the default
+	 * tags).
+	 */
+	public UserData(int version, ProfileRow profile, List<PantryRow> pantry, List<ShoppingRow> shopping,
+			List<LibraryRow> libraryRecipes, List<OwnRecipeRow> ownRecipes, List<PlanRow> plan,
+			List<CalendarRow> calendar, List<DiaryRow> diary) {
+		this(version, profile, pantry, shopping, libraryRecipes, ownRecipes, plan, calendar, diary, null);
+	}
 
 	/**
 	 * The profile. Files saved before the Profile page was rebuilt only have the
@@ -53,7 +63,21 @@ public record UserData(int version, ProfileRow profile, List<PantryRow> pantry, 
 	public record OwnRecipeRow(String title, int servings, List<IngredientRow> ingredients, List<String> steps,
 			int rating, int prepMinutes, int cookMinutes, String sourceName, String sourceUrl, String photo,
 			NutrientsRow aiEstimate, List<String> aiTags, java.util.Map<Integer, List<String>> stepUses,
-			int totalMinutes, java.util.Map<Integer, Integer> stepTimes, double publicRating, int publicRatingCount) {
+			int totalMinutes, java.util.Map<Integer, Integer> stepTimes, double publicRating, int publicRatingCount,
+			int freshDays) {
+
+		/**
+		 * The form used before leftover freshness was saved (the suggestion is then
+		 * used).
+		 */
+		public OwnRecipeRow(String title, int servings, List<IngredientRow> ingredients, List<String> steps, int rating,
+				int prepMinutes, int cookMinutes, String sourceName, String sourceUrl, String photo,
+				NutrientsRow aiEstimate, List<String> aiTags, java.util.Map<Integer, List<String>> stepUses,
+				int totalMinutes, java.util.Map<Integer, Integer> stepTimes, double publicRating,
+				int publicRatingCount) {
+			this(title, servings, ingredients, steps, rating, prepMinutes, cookMinutes, sourceName, sourceUrl, photo,
+					aiEstimate, aiTags, stepUses, totalMinutes, stepTimes, publicRating, publicRatingCount, 0);
+		}
 	}
 
 	/** Claude's nutrition estimate for a whole recipe. */
@@ -66,7 +90,17 @@ public record UserData(int version, ProfileRow profile, List<PantryRow> pantry, 
 	public record CalendarRow(String date, String meal, String recipe) {
 	}
 
+	/**
+	 * A logged food. Files saved before meals, times and notes existed only have
+	 * the first seven values.
+	 */
 	public record DiaryRow(String date, String description, double calories, double protein, double carbs, double fat,
-			boolean estimated) {
+			boolean estimated, String meal, String time, String note, String source) {
+
+		/** The old seven-value form. */
+		public DiaryRow(String date, String description, double calories, double protein, double carbs, double fat,
+				boolean estimated) {
+			this(date, description, calories, protein, carbs, fat, estimated, "", "", "", "");
+		}
 	}
 }

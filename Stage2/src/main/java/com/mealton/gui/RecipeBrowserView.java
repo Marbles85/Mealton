@@ -28,6 +28,7 @@ import com.mealton.pantry.PantryItem;
 import com.mealton.plan.MealEntry;
 import com.mealton.plan.MealSlot;
 import com.mealton.profile.UserProfile;
+import com.mealton.recipe.LeftoverFreshness;
 import com.mealton.recipe.Recipe;
 import com.mealton.recipe.RecipeImporter;
 import com.mealton.recipe.RecipeIngredient;
@@ -1185,6 +1186,69 @@ public class RecipeBrowserView extends BorderPane {
 		return (exact ? "" : "about ") + timeText(total);
 	}
 
+	/**
+	 * "Leftovers keep about 3 days" with Mealton's reason. Recipes you made or
+	 * imported can be changed here (type a number, or Reset to go back to the
+	 * suggestion); built-in recipes only show the estimate.
+	 */
+	private Node freshnessRow(Recipe recipe) {
+		LeftoverFreshness.Suggestion sug = recipe.suggestedFresh();
+		Label lead = new Label("Leftovers keep");
+		lead.getStyleClass().add("rc-sub");
+		boolean editable = !recipe.isLibrary() || (recipe.isDiscovered() && recipe.isSaved());
+		if (!editable) {
+			Label est = new Label("about " + sug.days() + " days in the fridge (estimate: " + sug.reason() + ")");
+			est.getStyleClass().add("rc-sub");
+			est.setWrapText(true);
+			est.setMinHeight(Region.USE_PREF_SIZE);
+			return new HBox(6, lead, est);
+		}
+		TextField days = new TextField(String.valueOf(recipe.freshDays()));
+		days.setPrefWidth(64);
+		days.setMaxWidth(64);
+		days.getStyleClass().add("rc-fresh-field");
+		Label unit = new Label("days");
+		unit.getStyleClass().add("rc-sub");
+		Label hint = new Label(recipe.getFreshOverride() > 0
+				? "you set this \u00B7 suggested " + sug.days() + " (" + sug.reason() + ")"
+				: "suggested (" + sug.reason() + ")");
+		hint.getStyleClass().add("rc-meta");
+		Runnable commit = () -> {
+			String typed = days.getText() == null ? "" : days.getText().trim();
+			try {
+				int n = Integer.parseInt(typed);
+				if (n < 1 || n > 60) {
+					throw new NumberFormatException();
+				}
+				if (n != recipe.freshDays()) {
+					recipe.setFreshOverride(n == sug.days() ? 0 : n);
+					setMessage("Leftovers of '" + recipe.getTitle() + "' now keep " + n + " days.", false);
+					onDataChanged.run();
+				}
+			} catch (NumberFormatException bad) {
+				setMessage("Enter a whole number of days from 1 to 60.", true);
+			}
+		};
+		days.setOnAction(e -> commit.run());
+		days.focusedProperty().addListener((o, was, is) -> {
+			if (!is) {
+				commit.run();
+			}
+		});
+		Button reset = new Button("Use suggestion");
+		reset.getStyleClass().add("rc-pill-btn");
+		reset.setVisible(recipe.getFreshOverride() > 0);
+		reset.setManaged(recipe.getFreshOverride() > 0);
+		reset.setOnAction(e -> {
+			recipe.setFreshOverride(0);
+			setMessage("Leftovers of '" + recipe.getTitle() + "' use the suggested " + sug.days() + " days.", false);
+			onDataChanged.run();
+		});
+		HBox row = new HBox(8, lead, days, unit, hint, reset);
+		row.setAlignment(Pos.CENTER_LEFT);
+		return row;
+	}
+
 	private static String timeText(int minutes) {
 		return minutes >= 60 ? (minutes / 60) + " h" + (minutes % 60 == 0 ? "" : " " + (minutes % 60) + " min")
 				: minutes + " min";
@@ -1282,9 +1346,23 @@ public class RecipeBrowserView extends BorderPane {
 		Button log = new Button("✓  I made this · Log it");
 		log.getStyleClass().add("primary");
 		log.setOnAction(e -> attempt(() -> {
-			facade.logRecipeServings(id, 1);
+			java.time.LocalTime now = java.time.LocalTime.now();
+			String wanted = now.getHour() < 11 ? "Breakfast" : now.getHour() < 16 ? "Lunch" : "Dinner";
+			String meal = facade.getMealTags().contains(wanted) ? wanted : "";
+			com.mealton.diary.MealLogService.Result result = facade.logRecipeMeal(id, recipe.getServings(), 1, meal,
+					null, "", true);
+			LogFeedback.Outcome outcome = LogFeedback.afterLogging(this, facade, result);
 			onDataChanged.run();
-			setMessage("Logged 1 serving of '" + recipe.getTitle() + "' in today's food diary.", false);
+			if (outcome.undone()) {
+				setMessage("Undid the log of '" + recipe.getTitle() + "'.", false);
+			} else {
+				setMessage(
+						"Logged 1 serving of '" + recipe.getTitle() + "'"
+								+ (outcome.addedToList() > 0 ? " and added " + outcome.addedToList()
+										+ (outcome.addedToList() == 1 ? " item" : " items") + " to your shopping list."
+										: "."),
+						false);
+			}
 		}));
 		Button calendar = new Button("Add to calendar");
 		calendar.setOnAction(e -> attempt(() -> addToCalendar(recipe)));
@@ -1343,7 +1421,7 @@ public class RecipeBrowserView extends BorderPane {
 		whyButton.getStyleClass().add("rc-link-bold");
 		whyButton.setOnAction(e -> askWhy(id, whyButton, why));
 
-		VBox heroText = new VBox(12, tags, title, meta);
+		VBox heroText = new VBox(12, tags, title, meta, freshnessRow(recipe));
 		if (recipe.getSourceName() != null || recipe.getSourceUrl() != null) {
 			Label from = new Label(
 					"Recipe from " + (recipe.getSourceName() == null ? "the web" : recipe.getSourceName()));

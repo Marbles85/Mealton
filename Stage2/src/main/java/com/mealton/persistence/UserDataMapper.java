@@ -81,7 +81,7 @@ public final class UserDataMapper {
 										r.getAiEstimate().carbs(), r.getAiEstimate().fat()),
 						new ArrayList<>(r.getAiTags()), new java.util.TreeMap<>(r.getAllStepIngredients()),
 						r.getTotalOverride(), new java.util.TreeMap<>(r.getAllStepTimes()), r.getPublicRating(),
-						r.getPublicRatingCount()));
+						r.getPublicRatingCount(), r.getFreshOverride()));
 			}
 		}
 
@@ -104,10 +104,11 @@ public final class UserDataMapper {
 		for (LoggedFood f : facade.getAllLoggedFood()) {
 			Nutrients n = f.nutrients();
 			diary.add(new DiaryRow(f.date().toString(), f.description(), n.calories(), n.protein(), n.carbs(), n.fat(),
-					f.estimated()));
+					f.estimated(), f.meal(), f.time(), f.note(), f.source()));
 		}
 
-		return new UserData(UserData.CURRENT_VERSION, profile, pantry, shopping, library, own, plan, calendar, diary);
+		return new UserData(UserData.CURRENT_VERSION, profile, pantry, shopping, library, own, plan, calendar, diary,
+				new ArrayList<>(facade.getMealTags()));
 	}
 
 	// ---------------- data -> facade ----------------
@@ -167,6 +168,11 @@ public final class UserDataMapper {
 					});
 				}
 				made.setTotalOverride(row.totalMinutes());
+				try {
+					made.setFreshOverride(row.freshDays());
+				} catch (IllegalArgumentException outOfRange) {
+					// keep the suggestion
+				}
 				if (row.publicRating() > 0) {
 					made.setPublicRating(row.publicRating(), row.publicRatingCount());
 				}
@@ -239,10 +245,15 @@ public final class UserDataMapper {
 			});
 		}
 
+		for (String tag : orEmpty(data.mealTags())) {
+			attempt(warnings, "meal tag '" + tag + "'", () -> facade.addMealTag(tag));
+		}
+
 		for (DiaryRow row : orEmpty(data.diary())) {
 			attempt(warnings, "food diary entry '" + row.description() + "'",
-					() -> facade.restoreLoggedFood(LocalDate.parse(row.date()), row.description(),
-							new Nutrients(row.calories(), row.protein(), row.carbs(), row.fat()), row.estimated()));
+					() -> facade.restoreLoggedEntry(new LoggedFood(0, LocalDate.parse(row.date()), row.description(),
+							new Nutrients(row.calories(), row.protein(), row.carbs(), row.fat()), row.estimated(),
+							row.meal(), row.time(), row.note(), row.source())));
 		}
 		return warnings;
 	}

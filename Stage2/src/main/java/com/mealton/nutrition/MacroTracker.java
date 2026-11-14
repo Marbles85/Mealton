@@ -56,12 +56,54 @@ public class MacroTracker {
 	}
 
 	private LoggedFood add(LocalDate date, String description, Nutrients nutrients, boolean estimated) {
+		return add(date, description, nutrients, estimated, "", "", "", "custom");
+	}
+
+	private LoggedFood add(LocalDate date, String description, Nutrients nutrients, boolean estimated, String meal,
+			String time, String note, String source) {
 		if (date == null) {
 			throw new IllegalArgumentException("A date is needed.");
 		}
-		LoggedFood entry = new LoggedFood(nextId++, date, description, nutrients, estimated);
+		LoggedFood entry = new LoggedFood(nextId++, date, description, nutrients, estimated, meal, time, note, source);
 		entries.add(entry);
 		return entry;
+	}
+
+	/**
+	 * Logs something with its meal, time, note and where it came from (the Log food
+	 * page).
+	 */
+	public synchronized LoggedFood log(LocalDate date, String meal, String time, String description,
+			Nutrients nutrients, boolean estimated, String note, String source) {
+		if (description == null || description.isBlank()) {
+			throw new IllegalArgumentException("Describe what was eaten.");
+		}
+		if (meal != null && meal.trim().length() > 30) {
+			throw new IllegalArgumentException("A meal tag can be at most 30 characters.");
+		}
+		return add(date, description.trim(), nutrients, estimated, meal, time, note, source);
+	}
+
+	/**
+	 * Puts back an entry that was deleted or loaded from the file, keeping its
+	 * details (it gets a new id).
+	 */
+	public synchronized LoggedFood restore(LoggedFood old) {
+		return add(old.date(), old.description(), old.nutrients(), old.estimated(), old.meal(), old.time(), old.note(),
+				old.source());
+	}
+
+	/** Everything logged from one day to another (both included), oldest first. */
+	public synchronized List<LoggedFood> entriesBetween(LocalDate from, LocalDate to) {
+		List<LoggedFood> result = new ArrayList<>();
+		for (LoggedFood entry : entries) {
+			if (!entry.date().isBefore(from) && !entry.date().isAfter(to)) {
+				result.add(entry);
+			}
+		}
+		result.sort(java.util.Comparator.comparing(LoggedFood::date).thenComparing(LoggedFood::time)
+				.thenComparingLong(LoggedFood::id));
+		return result;
 	}
 
 	/** Everything logged on a day, oldest first. */
