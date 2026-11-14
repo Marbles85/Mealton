@@ -1,0 +1,36 @@
+/* Styles for the Recipes page (loaded by RecipeBrowserView). */
+.rc-page { -fx-background-color: #f6f8f4; }
+.rc-title { -fx-font-size: 28px; -fx-font-weight: bold; -fx-text-fill: #25362b; }
+.rc-sub { -fx-font-size: 13px; -fx-text-fill: #6b7d70; }
+.rc-search { -fx-background-radius: 10; -fx-border-radius: 10; -fx-border-color: #d5dfd2; -fx-background-color: white; -fx-padding: 8 12 8 12; }
+.rc-tab { -fx-background-color: transparent; -fx-background-radius: 20; -fx-border-color: transparent; -fx-text-fill: #4d6354; -fx-padding: 7 16 7 16; -fx-cursor: hand; -fx-font-weight: bold; }
+.rc-tab:hover { -fx-background-color: #e6eee2; }
+.rc-tab-on, .rc-tab-on:hover { -fx-background-color: #4f7a5a; -fx-text-fill: white; }
+.rc-chip { -fx-background-color: white; -fx-border-color: #d5dfd2; -fx-border-radius: 16; -fx-background-radius: 16; -fx-text-fill: #4d6354; -fx-padding: 4 12 4 12; -fx-cursor: hand; -fx-font-size: 12px; }
+.rc-chip:hover { -fx-background-color: #eef3ec; }
+.rc-chip-on, .rc-chip-on:hover { -fx-background-color: #dcebd9; -fx-border-color: #4f7a5a; -fx-text-fill: #2f5a3a; }
+.rc-link { -fx-background-color: transparent; -fx-border-color: transparent; -fx-text-fill: #4f7a5a; -fx-underline: true; -fx-cursor: hand; -fx-font-size: 12px; }
+.rc-card { -fx-background-color: white; -fx-background-radius: 14; -fx-border-color: #e1e8de; -fx-border-radius: 14; -fx-cursor: hand; -fx-effect: dropshadow(gaussian, rgba(37,54,43,0.07), 8, 0, 0, 2); }
+.rc-card:hover { -fx-border-color: #4f7a5a; }
+.rc-card-top { -fx-background-color: #e3ecdf; -fx-background-radius: 14 14 0 0; }
+.rc-card-letter { -fx-font-size: 34px; -fx-font-weight: bold; -fx-text-fill: #7a9a80; }
+.rc-card-title { -fx-font-size: 15px; -fx-font-weight: bold; -fx-text-fill: #25362b; }
+.rc-meta { -fx-font-size: 12px; -fx-text-fill: #6b7d70; }
+.rc-ready { -fx-background-color: #4f7a5a; -fx-text-fill: white; -fx-background-radius: 10; -fx-padding: 2 9 2 9; -fx-font-size: 11px; -fx-font-weight: bold; }
+.rc-missing { -fx-background-color: #fff2d6; -fx-text-fill: #8a5a00; -fx-background-radius: 10; -fx-padding: 2 9 2 9; -fx-font-size: 11px; -fx-font-weight: bold; }
+.rc-mine { -fx-background-color: #e6eee2; -fx-text-fill: #2f5a3a; -fx-background-radius: 10; -fx-padding: 2 9 2 9; -fx-font-size: 11px; -fx-font-weight: bold; }
+.rc-tag { -fx-background-color: #eef3ec; -fx-text-fill: #4d6354; -fx-background-radius: 10; -fx-padding: 1 8 1 8; -fx-font-size: 11px; }
+.rc-stars { -fx-text-fill: #d9a432; -fx-font-size: 13px; }
+.rc-star-btn { -fx-background-color: transparent; -fx-border-color: transparent; -fx-padding: 0 2 0 2; -fx-font-size: 22px; -fx-text-fill: #c9d3c6; -fx-cursor: hand; }
+.rc-star-on { -fx-text-fill: #d9a432; }
+.rc-heart { -fx-background-color: white; -fx-border-color: #d5dfd2; -fx-border-radius: 18; -fx-background-radius: 18; -fx-text-fill: #4d6354; -fx-padding: 6 14 6 14; -fx-cursor: hand; }
+.rc-heart-on { -fx-background-color: #fdeaea; -fx-border-color: #d96a6a; -fx-text-fill: #b23a3a; }
+.rc-panel { -fx-background-color: white; -fx-background-radius: 14; -fx-border-color: #e1e8de; -fx-border-radius: 14; -fx-padding: 16; }
+.rc-h2 { -fx-font-size: 15px; -fx-font-weight: bold; -fx-text-fill: #25362b; }
+.rc-big { -fx-font-size: 22px; -fx-font-weight: bold; -fx-text-fill: #25362b; }
+.rc-have { -fx-text-fill: #2f5a3a; }
+.rc-need { -fx-text-fill: #8a5a00; -fx-font-weight: bold; }
+.rc-ok { -fx-text-fill: #2e7d32; }
+.rc-err { -fx-text-fill: #c62828; }
+.rc-why { -fx-background-color: #eef3ec; -fx-background-radius: 10; -fx-padding: 10 12 10 12; -fx-text-fill: #34493a; -fx-font-style: italic; }
+.rc-empty { -fx-text-fill: #6b7d70; -fx-font-size: 14px; }
