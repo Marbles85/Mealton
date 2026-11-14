@@ -7,8 +7,8 @@ import java.util.prefs.Preferences;
 /**
  * Small look-and-feel settings kept on this computer (not part of any account's
  * data): where the AI chat lives, whether the sidebar is collapsed, where the
- * chat bubble was dropped, and the username remembered by "Remember me" (never
- * the password).
+ * chat bubble was dropped, and "Remember me" (the username and a random token,
+ * never the password).
  */
 public class UiSettings {
 	public static final String CHAT_ROAM = "roam"; // a draggable bubble
@@ -93,8 +93,21 @@ public class UiSettings {
 		return get("rememberedUser", "");
 	}
 
-	/** Pass null to forget. */
-	public static void setRememberedUser(String username) {
+	/**
+	 * The random "Remember me" token (see AccountService.createRememberToken), or
+	 * "" if there is none.
+	 */
+	public static String rememberedToken() {
+		return get("rememberedToken", "");
+	}
+
+	public static void remember(String username, String token) {
 		put("rememberedUser", username);
+		put("rememberedToken", token);
+	}
+
+	public static void forgetRemembered() {
+		put("rememberedUser", null);
+		put("rememberedToken", null);
 	}
 }
