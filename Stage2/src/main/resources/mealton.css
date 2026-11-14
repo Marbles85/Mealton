@@ -113,7 +113,7 @@
 .login-left { -fx-background-color: #4F6B52; }
 .logo-tile { -fx-background-color: #E6EDE2; -fx-background-radius: 12; }
 .login-brand { -fx-text-fill: #FFFFFF; -fx-font-size: 24px; -fx-font-weight: bold; }
-.login-headline { -fx-text-fill: #FFFFFF; -fx-font-size: 44px; -fx-font-weight: bold; }
+.login-headline { -fx-text-fill: #FFFFFF; -fx-font-size: 38px; -fx-font-weight: bold; }
 .login-lead { -fx-text-fill: #E6EDE2; -fx-font-size: 17px; }
 .login-bullet { -fx-text-fill: #F1F5EE; -fx-font-size: 15px; }
 .dot { -fx-background-color: #C5D5B8; -fx-background-radius: 4; }

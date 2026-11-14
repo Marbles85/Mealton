@@ -229,11 +229,11 @@ public class Sidebar extends VBox {
 			button.setMaxWidth(Double.MAX_VALUE);
 			Label name = new Label(displayName);
 			name.setStyle("-fx-font-weight: bold; -fx-font-size: 13px;");
-			name.setMaxWidth(110);
+			name.setMaxWidth(120);
 			name.setTextOverrun(OverrunStyle.ELLIPSIS);
-			Label sub = new Label("Profile & settings");
+			Label sub = new Label("Settings");
 			sub.getStyleClass().add("muted");
-			sub.setStyle("-fx-font-size: 13px;");
+			sub.setStyle("-fx-font-size: 12px;");
 			Region grow = new Region();
 			HBox.setHgrow(grow, Priority.ALWAYS);
 			HBox row = new HBox(10, avatar(36), new VBox(name, sub), grow,
