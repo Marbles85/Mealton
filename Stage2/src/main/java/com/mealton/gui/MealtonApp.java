@@ -19,16 +19,16 @@ import javafx.stage.Stage;
 /** JavaFX entry point. Start it with: mvn javafx:run */
 public class MealtonApp extends Application {
 
-	private static final double PREFERRED_WIDTH = 980;
-	private static final double PREFERRED_HEIGHT = 700;
+	// The window opens this big, but never bigger than the usable screen (see
+	// start()).
+	private static final double PREFERRED_WIDTH = 1440;
+	private static final double PREFERRED_HEIGHT = 900;
 
 	private final AccountService accounts = new AccountService(AccountService.defaultDirectory());
 	private LLMClient llm; // null when the AI is off; one client is shared by every login
 	private Stage stage;
 	private Session session; // the logged-in user, or null on the login screen
 	private MainWindow window; // the main window of the logged-in user, or null on the login screen
-	private double width;
-	private double height;
 
 	@Override
 	public void start(Stage stage) {
@@ -39,21 +39,22 @@ public class MealtonApp extends Application {
 		try {
 			llm = LLMClientFactory.create(AppConfig.load());
 		} catch (RuntimeException e) {
-			// The rest of the app works without the AI; the Chat page explains it is
+			// The rest of the app works without the AI; the Chat panel explains it is
 			// switched off.
 			System.out.println("AI assistant is OFF: " + e.getMessage());
 		}
 
-		// Fit the window to the usable part of the screen (not under the taskbar) and
-		// centre it,
-		// so the title bar and buttons are always reachable on small laptop screens.
+		// Size the whole window (title bar included) to almost the usable screen, not
+		// under the taskbar,
+		// and centre it, so nothing is cut off when the app starts.
 		Rectangle2D screen = Screen.getPrimary().getVisualBounds();
-		width = Math.min(PREFERRED_WIDTH, screen.getWidth() * 0.9);
-		height = Math.min(PREFERRED_HEIGHT, screen.getHeight() * 0.85);
-
+		double width = Math.min(PREFERRED_WIDTH, screen.getWidth() * 0.96);
+		double height = Math.min(PREFERRED_HEIGHT, screen.getHeight() * 0.94);
 		stage.setTitle("Mealton");
-		stage.setMinWidth(Math.min(760, width));
-		stage.setMinHeight(Math.min(520, height));
+		stage.setWidth(width);
+		stage.setHeight(height);
+		stage.setMinWidth(Math.min(900, width));
+		stage.setMinHeight(Math.min(620, height));
 		stage.setX(screen.getMinX() + (screen.getWidth() - width) / 2);
 		stage.setY(screen.getMinY() + (screen.getHeight() - height) / 2);
 		// closing the window saves the user's data
@@ -68,7 +69,7 @@ public class MealtonApp extends Application {
 	 * plainer, if it is missing).
 	 */
 	private Scene styledScene(Parent root) {
-		Scene scene = new Scene(root, width, height);
+		Scene scene = new Scene(root); // the window's own size is used
 		URL css = MealtonApp.class.getResource("/mealton.css");
 		if (css != null) {
 			scene.getStylesheets().add(css.toExternalForm());
