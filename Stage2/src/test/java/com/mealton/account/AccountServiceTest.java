@@ -46,6 +46,46 @@ class AccountServiceTest {
 	}
 
 	@Test
+	void anEmailAddressWorksAsALoginName() {
+		AccountService accounts = new AccountService(dir);
+		assertEquals("joe.smith@example.com", accounts.signUp("Joe.Smith@Example.com", "password123", "password123"));
+		assertEquals("joe.smith@example.com", accounts.logIn("JOE.SMITH@example.com", "password123"));
+		assertTrue(accounts.userDirectory("joe.smith@example.com").startsWith(dir));
+		assertFalse(accounts.userDirectory("joe.smith@example.com").toString().contains("@"));
+		for (String bad : new String[] { "joe@", "@example.com", "joe@example", "joe@@example.com", "a b@example.com",
+				"joe/../x@example.com", "..\\x@example.com" }) {
+			assertThrows(IllegalArgumentException.class, () -> accounts.signUp(bad, "password123", "password123"), bad);
+		}
+	}
+
+	@Test
+	void rememberMeTokenLogsInWithoutThePassword() throws IOException {
+		AccountService accounts = new AccountService(dir);
+		accounts.signUp("sam", "password123", "password123");
+		String token = accounts.createRememberToken("sam");
+		assertEquals("sam", accounts.logInWithToken("SAM", token));
+		assertThrows(IllegalArgumentException.class, () -> accounts.logInWithToken("sam", "not-the-token"));
+		assertThrows(IllegalArgumentException.class, () -> accounts.logInWithToken("ghost", token));
+		assertFalse(Files.readString(dir.resolve("accounts.json")).contains(token)); // only a hash is kept
+		// survives a restart, and the normal password still works
+		assertEquals("sam", new AccountService(dir).logInWithToken("sam", token));
+		assertEquals("sam", accounts.logIn("sam", "password123"));
+	}
+
+	@Test
+	void rememberMeCanBeTurnedOffAndReplaced() {
+		AccountService accounts = new AccountService(dir);
+		accounts.signUp("sam", "password123", "password123");
+		String first = accounts.createRememberToken("sam");
+		String second = accounts.createRememberToken("sam");
+		assertThrows(IllegalArgumentException.class, () -> accounts.logInWithToken("sam", first));
+		assertEquals("sam", accounts.logInWithToken("sam", second));
+		accounts.forgetRememberToken("sam");
+		assertThrows(IllegalArgumentException.class, () -> accounts.logInWithToken("sam", second));
+		assertThrows(IllegalArgumentException.class, () -> accounts.logInWithToken("sam", null));
+	}
+
+	@Test
 	void passwordRules() {
 		AccountService accounts = new AccountService(dir);
 		assertThrows(IllegalArgumentException.class, () -> accounts.signUp("sam", "short", "short"));
