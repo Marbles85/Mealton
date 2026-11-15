@@ -263,7 +263,7 @@ public class RecipeBrowserView extends BorderPane {
 	// ------------------------------------------------------------------ list
 
 	private static LocalDate weekStart() {
-		return LocalDate.now().with(TemporalAdjusters.previousOrSame(DayOfWeek.MONDAY));
+		return LocalDate.now().with(TemporalAdjusters.previousOrSame(DayOfWeek.SUNDAY));
 	}
 
 	private static String weekLabel() {

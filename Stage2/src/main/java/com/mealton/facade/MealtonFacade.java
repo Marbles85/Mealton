@@ -80,6 +80,7 @@ public class MealtonFacade {
 	private final ProfileService profile = new ProfileService();
 	private final PlanService planner;
 	private final CalendarService calendar;
+	private final com.mealton.plan.RangePlanner rangePlanner;
 	private final MacroTracker tracker = new MacroTracker(profile::get);
 	/**
 	 * Meal tags the user can use on the plan, the calendar and Log food (Breakfast,
@@ -106,6 +107,8 @@ public class MealtonFacade {
 		this.advisor = new RecipeAdvisor(recipes, pantry, shopping, profile);
 		this.planner = new PlanService(recipes, advisor, profile);
 		this.calendar = new CalendarService(planner, recipes, advisor, profile);
+		this.rangePlanner = new com.mealton.plan.RangePlanner(recipes, advisor, profile, pantry, calendar,
+				new java.util.Random());
 		// whenever the profile changes, the agent's memory learns it too (so Claude
 		// always knows the diet)
 		profile.addListener(this::syncProfileToMemory);
@@ -823,6 +826,58 @@ public class MealtonFacade {
 		return n;
 	}
 
+	/** Tags that always stay (their order in the day depends on them). */
+	public static boolean isBuiltInTag(String name) {
+		return List.of("Breakfast", "Lunch", "Dinner").contains(name);
+	}
+
+	/**
+	 * Renames a tag you made. Meals on the calendar that use it follow the new name
+	 * (one Undo step).
+	 *
+	 * @return how many meals were renamed
+	 * @throws IllegalArgumentException for a built-in tag, an empty or taken name
+	 */
+	public synchronized int renameMealTag(String oldName, String newName) {
+		if (isBuiltInTag(oldName)) {
+			throw new IllegalArgumentException("Breakfast, Lunch and Dinner can\u2019t be renamed.");
+		}
+		int at = mealTags.indexOf(oldName);
+		if (at < 0) {
+			throw new IllegalArgumentException("That tag doesn\u2019t exist any more.");
+		}
+		String n = newName == null ? "" : newName.trim();
+		if (n.isEmpty()) {
+			throw new IllegalArgumentException("Type a name for the tag.");
+		}
+		if (n.length() > 20) {
+			throw new IllegalArgumentException("A tag can be at most 20 characters.");
+		}
+		for (String t : mealTags) {
+			if (t.equalsIgnoreCase(n) && !t.equals(oldName)) {
+				throw new IllegalArgumentException("\u201C" + t + "\u201D already exists.");
+			}
+		}
+		int changed = calendar.retag(oldName, n);
+		mealTags.set(at, n);
+		return changed;
+	}
+
+	/**
+	 * Deletes a tag you made. Meals that had it stay on the calendar, untagged (one
+	 * Undo step).
+	 *
+	 * @return how many meals lost the tag
+	 */
+	public synchronized int deleteMealTag(String name) {
+		if (isBuiltInTag(name)) {
+			throw new IllegalArgumentException("Breakfast, Lunch and Dinner can\u2019t be deleted.");
+		}
+		int changed = calendar.retag(name, "");
+		mealTags.remove(name);
+		return changed;
+	}
+
 	/**
 	 * Removes a tag the user made. Breakfast, Lunch and Dinner stay. Meals already
 	 * tagged keep their text.
@@ -985,6 +1040,187 @@ public class MealtonFacade {
 			recipes.setSaved(recipeId, true); // a generated recipe you plan with is kept, so a refresh cannot remove it
 		}
 		calendar.set(date, meal, recipeId);
+	}
+
+	// ---- Plan meals (a draft for any dates, applied when the user likes it)
+
+	public com.mealton.plan.RangePlanner.Draft draftPlan(com.mealton.plan.RangePlanner.Options options) {
+		return rangePlanner.generate(options);
+	}
+
+	public void rerollDraftMeal(com.mealton.plan.RangePlanner.Draft draft, LocalDate date, int index) {
+		rangePlanner.reroll(draft, date, index);
+	}
+
+	public void regenerateDraft(com.mealton.plan.RangePlanner.Draft draft, java.util.Set<String> kept) {
+		rangePlanner.regenerateRest(draft, kept);
+	}
+
+	/**
+	 * Moves one meal of a draft to a day (toIndex -1 = in time order). The meal
+	 * keeps its tag.
+	 */
+	public void moveDraftMeal(com.mealton.plan.RangePlanner.Draft draft, LocalDate from, int fromIndex, LocalDate to,
+			int toIndex) {
+		rangePlanner.moveMeal(draft, from, fromIndex, to, toIndex);
+	}
+
+	/** Swaps the recipes of two meals of a draft; each place keeps its own tag. */
+	public void swapDraftMeals(com.mealton.plan.RangePlanner.Draft draft, LocalDate a, int ai, LocalDate b, int bi) {
+		rangePlanner.swapMeals(draft, a, ai, b, bi);
+	}
+
+	/** Puts the draft on the calendar (one Undo step). @return meals added */
+	public int applyDraft(com.mealton.plan.RangePlanner.Draft draft) {
+		return rangePlanner.apply(draft);
+	}
+
+	public int addDraftToShoppingList(com.mealton.plan.RangePlanner.Draft draft) {
+		return rangePlanner.addMissingToShoppingList(draft);
+	}
+
+	// ---- prep days on the calendar
+
+	public List<com.mealton.plan.CalendarService.PrepEvent> getPrepDays() {
+		return calendar.prepEvents();
+	}
+
+	public com.mealton.plan.CalendarService.PrepEvent getPrepDay(LocalDate date) {
+		return calendar.prepOn(date);
+	}
+
+	/** Puts the prep session on the calendar (one Undo step). */
+	public void savePrepDay(com.mealton.plan.PrepScheduler.Schedule schedule) {
+		calendar.setPrep(new com.mealton.plan.CalendarService.PrepEvent(schedule.options().prepDate(),
+				schedule.options().startTime(), Math.max(1, schedule.totalMinutes()), schedule.portions()));
+	}
+
+	/**
+	 * Edits a prep session that is already on the calendar: it moves to the
+	 * schedule's date (one Undo step).
+	 */
+	public void movePrepDay(LocalDate oldDate, com.mealton.plan.PrepScheduler.Schedule schedule) {
+		calendar.movePrep(oldDate, new com.mealton.plan.CalendarService.PrepEvent(schedule.options().prepDate(),
+				schedule.options().startTime(), Math.max(1, schedule.totalMinutes()), schedule.portions()));
+	}
+
+	public boolean removePrepDay(LocalDate date) {
+		return calendar.clearPrep(date);
+	}
+
+	public void restorePrepDay(com.mealton.plan.CalendarService.PrepEvent event) {
+		calendar.restorePrep(event);
+	}
+
+	/**
+	 * Swaps a calendar meal for a recipe Mealton picks (one Undo step). @return the
+	 * new recipe
+	 */
+	public Recipe swapForSuggestion(LocalDate date, int index) {
+		Recipe r = rangePlanner.suggestFor(date, index);
+		calendar.replace(date, index, r.getId());
+		return r;
+	}
+
+	// ---- Prep day schedule (batch cooking session)
+
+	public com.mealton.plan.PrepScheduler.Schedule buildPrepSchedule(com.mealton.plan.PrepScheduler.Options options) {
+		return new com.mealton.plan.PrepScheduler(calendar, pantry).build(options);
+	}
+
+	/**
+	 * Puts what the prep day is short of on the shopping list.
+	 *
+	 * @return the ids of the new list items, so they can be taken back
+	 */
+	public List<Long> addPrepShortToShoppingList(com.mealton.plan.PrepScheduler.Schedule schedule) {
+		List<Long> ids = new ArrayList<>();
+		for (com.mealton.plan.PrepScheduler.Row r : schedule.shortRows()) {
+			double onList = 0;
+			for (ShoppingItem item : shopping.getItems()) {
+				if (!item.isChecked() && item.getName().trim().equalsIgnoreCase(r.name())
+						&& item.getUnit().equalsIgnoreCase(r.unit())) {
+					onList += item.getQuantity();
+				}
+			}
+			double more = r.shortBy() - onList;
+			if (more > 1e-9) {
+				ids.add(shopping.addItem(new ShoppingItem(r.name(), more, r.unit(), null)).getId());
+			}
+		}
+		return ids;
+	}
+
+	// ---- tagged meals (the Meal plan page)
+
+	/** Every meal on a date in the order shown, each with its tag and servings. */
+	public List<com.mealton.plan.PlannedMeal> getPlannedMeals(LocalDate date) {
+		return calendar.plannedOn(date);
+	}
+
+	/**
+	 * Adds a meal to a date. @param tag Breakfast, Lunch, a tag of your own, or
+	 * empty for none
+	 */
+	public int addPlannedMeal(LocalDate date, String tag, long recipeId, int servings) {
+		Recipe chosen = recipes.get(recipeId);
+		if (chosen.isDiscovered() && !chosen.isSaved()) {
+			recipes.setSaved(recipeId, true);
+		}
+		return calendar.add(date, tag, recipeId, servings);
+	}
+
+	public void replacePlannedMeal(LocalDate date, int index, long recipeId) {
+		Recipe chosen = recipes.get(recipeId);
+		if (chosen.isDiscovered() && !chosen.isSaved()) {
+			recipes.setSaved(recipeId, true);
+		}
+		calendar.replace(date, index, recipeId);
+	}
+
+	public void removePlannedMeal(LocalDate date, int index) {
+		calendar.remove(date, index);
+	}
+
+	public void setPlannedMealTag(LocalDate date, int index, String tag) {
+		calendar.setTag(date, index, tag);
+	}
+
+	public void setPlannedMealServings(LocalDate date, int index, int servings) {
+		calendar.setServings(date, index, servings);
+	}
+
+	/**
+	 * Moves a meal to another place (toIndex -1 = add to the day in time order).
+	 */
+	public void movePlannedMeal(LocalDate from, int fromIndex, LocalDate to, int toIndex) {
+		calendar.move(from, fromIndex, to, toIndex);
+	}
+
+	/** Swaps two meals' recipes; each keeps its own tag. */
+	public void swapPlannedMeals(LocalDate a, int ai, LocalDate b, int bi) {
+		calendar.swap(a, ai, b, bi);
+	}
+
+	public boolean undoCalendar() {
+		return calendar.undo();
+	}
+
+	public boolean redoCalendar() {
+		return calendar.redo();
+	}
+
+	public boolean canRedoCalendar() {
+		return calendar.canRedo();
+	}
+
+	public boolean canUndoCalendar() {
+		return calendar.canUndo();
+	}
+
+	/** Forgets calendar undo steps (used after loading saved meals). */
+	public void forgetCalendarHistory() {
+		calendar.forgetHistory();
 	}
 
 	public void clearCalendarMeal(LocalDate date, String meal) {

@@ -9,9 +9,24 @@ import java.util.List;
  */
 public record UserData(int version, ProfileRow profile, List<PantryRow> pantry, List<ShoppingRow> shopping,
 		List<LibraryRow> libraryRecipes, List<OwnRecipeRow> ownRecipes, List<PlanRow> plan, List<CalendarRow> calendar,
-		List<DiaryRow> diary, List<String> mealTags, List<CategoryRow> categories) {
+		List<DiaryRow> diary, List<String> mealTags, List<CategoryRow> categories, List<PrepRow> prepDays) {
 
 	public static final int CURRENT_VERSION = 1;
+
+	/** The form used before prep days were saved. */
+	public UserData(int version, ProfileRow profile, List<PantryRow> pantry, List<ShoppingRow> shopping,
+			List<LibraryRow> libraryRecipes, List<OwnRecipeRow> ownRecipes, List<PlanRow> plan,
+			List<CalendarRow> calendar, List<DiaryRow> diary, List<String> mealTags, List<CategoryRow> categories) {
+		this(version, profile, pantry, shopping, libraryRecipes, ownRecipes, plan, calendar, diary, mealTags,
+				categories, null);
+	}
+
+	/**
+	 * A prep session on the calendar: date, start time (HH:mm), length and how many
+	 * meals it covers.
+	 */
+	public record PrepRow(String date, String time, int minutes, int meals) {
+	}
 
 	/**
 	 * The form used before pantry categories were saved (they then load as the
@@ -108,7 +123,16 @@ public record UserData(int version, ProfileRow profile, List<PantryRow> pantry, 
 	public record PlanRow(String day, String meal, String recipe) {
 	}
 
-	public record CalendarRow(String date, String meal, String recipe) {
+	public record CalendarRow(String date, String meal, String recipe, Integer servings) {
+
+		/** The form used before servings were saved (one serving). */
+		public CalendarRow(String date, String meal, String recipe) {
+			this(date, meal, recipe, 1);
+		}
+
+		public int servingsOrOne() {
+			return servings == null || servings < 1 ? 1 : servings;
+		}
 	}
 
 	/**

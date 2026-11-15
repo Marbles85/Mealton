@@ -95,8 +95,8 @@ public final class UserDataMapper {
 
 		List<CalendarRow> calendar = new ArrayList<>();
 		for (LocalDate date : facade.getCalendarDates()) {
-			for (MealEntry entry : facade.getCalendarMeals(date)) {
-				calendar.add(new CalendarRow(date.toString(), entry.slot().label(), entry.recipe().getTitle()));
+			for (com.mealton.plan.PlannedMeal meal : facade.getPlannedMeals(date)) {
+				calendar.add(new CalendarRow(date.toString(), meal.tag(), meal.recipe().getTitle(), meal.servings()));
 			}
 		}
 
@@ -115,8 +115,13 @@ public final class UserDataMapper {
 					new java.util.LinkedHashMap<>(l.getAliases())));
 		}
 
+		List<UserData.PrepRow> prepDays = new ArrayList<>();
+		for (com.mealton.plan.CalendarService.PrepEvent e : facade.getPrepDays()) {
+			prepDays.add(new UserData.PrepRow(e.date().toString(), e.start().toString(), e.minutes(), e.meals()));
+		}
+
 		return new UserData(UserData.CURRENT_VERSION, profile, pantry, shopping, library, own, plan, calendar, diary,
-				new ArrayList<>(facade.getMealTags()), categories);
+				new ArrayList<>(facade.getMealTags()), categories, prepDays);
 	}
 
 	// ---------------- data -> facade ----------------
@@ -269,9 +274,19 @@ public final class UserDataMapper {
 
 		for (CalendarRow row : orEmpty(data.calendar())) {
 			attempt(warnings, "calendar meal " + row.date() + " " + row.meal(), () -> {
-				facade.setCalendarMeal(LocalDate.parse(row.date()), row.meal(), idOf(facade, row.recipe()));
+				facade.addPlannedMeal(LocalDate.parse(row.date()), row.meal(), idOf(facade, row.recipe()),
+						row.servingsOrOne());
 			});
 		}
+
+		for (UserData.PrepRow row : orEmpty(data.prepDays())) {
+			attempt(warnings, "prep day " + row.date(),
+					() -> facade
+							.restorePrepDay(new com.mealton.plan.CalendarService.PrepEvent(LocalDate.parse(row.date()),
+									java.time.LocalTime.parse(row.time()), row.minutes(), row.meals())));
+		}
+
+		facade.forgetCalendarHistory(); // loading must not look like something the user can undo
 
 		for (String tag : orEmpty(data.mealTags())) {
 			attempt(warnings, "meal tag '" + tag + "'", () -> facade.addMealTag(tag));

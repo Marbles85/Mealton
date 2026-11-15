@@ -876,7 +876,7 @@ public final class CliApp implements PantryObserver {
 						  plan generate [variety|pantry] [dinner|lunch,dinner|all]   (plan the week from your recipes)
 						  plan [show] | set <day> <meal> <recipe id> | clear <day> <meal> | clear all | check | shop
 						  plan prep [ai]                   (one combined prep list for the week; 'ai' asks for a schedule)
-						  calendar load [date]             (put the plan on that date's Monday-to-Sunday week)
+						  calendar load [date]             (put the plan on that date's Sunday-to-Saturday week)
 						  calendar week [date] | day <date> | set <date> <meal> <recipe id> | clear <date> <meal> | clear week <date> | shop [date]
 						  convert <amount> <from> <to>       (units: g kg oz lb ml l tsp tbsp cup)
 						  scale <amount> <from servings> <to servings>

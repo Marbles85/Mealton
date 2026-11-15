@@ -64,6 +64,10 @@ public class MainWindow extends StackPane {
 			diaryView.selectPantryItem(id);
 		});
 		pantryView.setOnSeeRecipes(() -> showPage(RECIPES_PAGE));
+		planView.setOnLogRecipe(id -> {
+			showPage(LOG_PAGE);
+			diaryView.selectRecipe(id);
+		});
 		diaryView.setOnViewShoppingList(() -> {
 			showPage(PANTRY_PAGE);
 			pantryView.showShoppingList();

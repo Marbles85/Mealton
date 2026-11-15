@@ -31,10 +31,13 @@ class CalendarServiceTest {
 	}
 
 	@Test
-	void weeksStartOnMonday() {
-		assertEquals(MONDAY, CalendarService.weekStart(THURSDAY));
-		assertEquals(MONDAY, CalendarService.weekStart(MONDAY));
-		assertEquals(MONDAY, CalendarService.weekStart(LocalDate.of(2026, 11, 15)));
+	void weeksStartOnSunday() {
+		LocalDate sunday = MONDAY.minusDays(1);
+		assertEquals(sunday, CalendarService.weekStart(THURSDAY));
+		assertEquals(sunday, CalendarService.weekStart(MONDAY));
+		assertEquals(sunday, CalendarService.weekStart(sunday));
+		assertEquals(LocalDate.of(2026, 11, 15), CalendarService.weekStart(LocalDate.of(2026, 11, 15)));
+		assertEquals(LocalDate.of(2026, 11, 15), CalendarService.weekStart(LocalDate.of(2026, 11, 21)));
 		assertThrows(IllegalArgumentException.class, () -> CalendarService.weekStart(null));
 	}
 
@@ -44,12 +47,18 @@ class CalendarServiceTest {
 	}
 
 	@Test
-	void loadingPutsThePlanOnTheWholeWeekFromMonday() {
+	void loadingPutsThePlanOnTheWholeSundayToSaturdayWeek() {
 		facade.generatePlan("variety", "dinner");
 		assertEquals(7, facade.loadPlanOnCalendar(THURSDAY)); // any date in the week works
 		assertEquals(7, facade.getCalendarMealsInWeek(MONDAY));
 		for (int i = 0; i < 7; i++) {
-			List<MealEntry> meals = facade.getCalendarMeals(MONDAY.plusDays(i));
+			List<MealEntry> meals = facade.getCalendarMeals(i == 6 ? MONDAY.minusDays(1) : MONDAY.plusDays(i)); // plan
+																												// Sunday
+																												// sits
+																												// in
+																												// the
+																												// first
+																												// column
 			assertEquals(1, meals.size());
 			assertEquals(MealSlot.DINNER, meals.get(0).slot());
 			assertEquals(facade.getPlan().days().get(i).get(MealSlot.DINNER).orElseThrow().recipe().getId(),

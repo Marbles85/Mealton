@@ -1,7 +1,6 @@
 package com.mealton.gui;
 
 import java.nio.file.Path;
-import java.time.DayOfWeek;
 import java.time.LocalDate;
 import java.time.format.DateTimeFormatter;
 import java.util.ArrayList;
@@ -1505,7 +1504,7 @@ public class FoodDiaryView extends VBox {
 
 	private LocalDate rangeStart(LocalDate today) {
 		if ("week".equals(histRange)) {
-			return today.with(DayOfWeek.MONDAY);
+			return today.minusDays(today.getDayOfWeek().getValue() % 7);
 		}
 		return today.minusDays("30".equals(histRange) ? 29 : 6);
 	}
