@@ -112,6 +112,7 @@ public class MealtonFacade {
 		this.pantry = new PantryInventory(new InMemoryPantryRepository(), clock);
 		this.mealLog = new MealLogService(tracker, pantry);
 		this.shopping = new ShoppingService();
+		this.shopping.setOnBought(this::moveBoughtToPantry);
 		this.scheduler = new FreshnessScheduler(pantry);
 		this.advisor = new RecipeAdvisor(recipes, pantry, shopping, profile);
 		this.planner = new PlanService(recipes, advisor, profile);
@@ -299,6 +300,18 @@ public class MealtonFacade {
 		shopping.toggle(id);
 	}
 
+	/**
+	 * Ticked-and-cleared shopping items are bought, so they go into the pantry
+	 * (same food and unit are added together).
+	 */
+	private void moveBoughtToPantry(List<ShoppingItem> bought) {
+		for (ShoppingItem s : bought) {
+			double qty = s.getQuantity() > 0 ? s.getQuantity() : 1;
+			String cat = s.getCategory() == null || s.getCategory().isBlank() ? "Uncategorized" : s.getCategory();
+			addPantryItem(new PantryItem(s.getName(), qty, s.getUnit() == null ? "" : s.getUnit(), cat, null));
+		}
+	}
+
 	public int clearChecked() {
 		return shopping.clearChecked();
 	}
@@ -360,6 +373,25 @@ public class MealtonFacade {
 
 	public boolean isHoldingStarterRecipes() {
 		return recipes.isHoldingStarters();
+	}
+
+	/**
+	 * Titles of the recipes that are on the weekly plan or on any calendar day
+	 * (they must never be lost).
+	 */
+	public java.util.Set<String> recipeTitlesInUse() {
+		java.util.Set<String> used = new java.util.HashSet<>();
+		for (var day : getPlan().days()) {
+			for (MealEntry entry : day.entries()) {
+				used.add(entry.recipe().getTitle());
+			}
+		}
+		for (java.time.LocalDate date : getCalendarDates()) {
+			for (var meal : getPlannedMeals(date)) {
+				used.add(meal.recipe().getTitle());
+			}
+		}
+		return used;
 	}
 
 	/** Every recipe including ones held back; for saving the user's data. */
@@ -444,7 +476,7 @@ public class MealtonFacade {
 	 */
 	public boolean estimateNutrition(long id) {
 		Recipe recipe = recipes.get(id);
-		if (recipe.isLibrary() || RecipeNutrition.of(recipe).isComplete()) {
+		if ((recipe.isLibrary() && !recipe.isInMyRecipes()) || RecipeNutrition.of(recipe).isComplete()) {
 			return false;
 		}
 		Optional<Nutrients> estimate = RecipeNutritionEstimator.estimate(llm, recipe);
@@ -799,12 +831,7 @@ public class MealtonFacade {
 		if (fresh == null || fresh.isEmpty()) {
 			return 0;
 		}
-		java.util.Set<String> planned = new java.util.HashSet<>();
-		for (var day : getPlan().days()) {
-			for (MealEntry entry : day.entries()) {
-				planned.add(entry.recipe().getTitle());
-			}
-		}
+		java.util.Set<String> planned = recipeTitlesInUse(); // plan and calendar: never dropped
 		// each Refresh adds to what is already there; only when there are very many are
 		// the
 		// oldest generated recipes you did not keep dropped
@@ -838,7 +865,69 @@ public class MealtonFacade {
 				// the same title already exists: skip it
 			}
 		}
+		logNutritionGaps(fresh);
 		return added;
+	}
+
+	/**
+	 * Prints which ingredients of the new recipes the food table cannot count, and
+	 * why (an unknown food, or a unit it cannot turn into grams), so the table can
+	 * be improved.
+	 */
+	private void logNutritionGaps(java.util.List<Recipe> recipes) {
+		try {
+			java.util.Map<String, Integer> gaps = new java.util.TreeMap<>();
+			int total = 0;
+			int complete = 0;
+			for (Recipe r : recipes) {
+				total++;
+				boolean all = true;
+				for (RecipeIngredient i : r.getIngredients()) {
+					try {
+						if (com.mealton.nutrition.FoodTable.lookup(i.name(), i.quantity(), i.unit()).isEmpty()) {
+							gaps.merge("unknown food: " + i.name().toLowerCase(java.util.Locale.ROOT), 1, Integer::sum);
+							all = false;
+						}
+					} catch (IllegalArgumentException unit) {
+						gaps.merge("cannot weigh: " + i.name().toLowerCase(java.util.Locale.ROOT) + " ["
+								+ com.mealton.util.Formats.number(i.quantity()) + " "
+								+ (i.unit() == null ? "" : i.unit()) + "]", 1, Integer::sum);
+						all = false;
+					}
+				}
+				if (all) {
+					complete++;
+				}
+			}
+			if (total > 0) {
+				System.out.println("[Mealton] Nutrition: " + complete + " of " + total
+						+ " new recipes are fully counted. Not counted (" + gaps.size() + " kinds): " + gaps);
+			}
+		} catch (RuntimeException ignored) {
+			// logging only
+		}
+	}
+
+	/**
+	 * Gets more recipes from the free recipe services for the meal planner, one
+	 * lookup per hint (a cuisine, "breakfast"...). Stores nothing, so it can run in
+	 * the background; a service that fails or has nothing is simply skipped.
+	 */
+	public java.util.List<Recipe> findRecipesForPlan(java.util.List<String> hints, int perHint) {
+		java.util.List<String> avoid = new java.util.ArrayList<>(recipeTitles());
+		java.util.List<Recipe> out = new java.util.ArrayList<>();
+		for (String hint : hints) {
+			try {
+				for (Recipe r : generateRecipeDrafts(perHint, hint, avoid)) {
+					out.add(r);
+					avoid.add(r.getTitle());
+				}
+			} catch (RuntimeException e) {
+				System.out.println(
+						"[Mealton] Meal plan could not load online recipes for \"" + hint + "\": " + e.getMessage());
+			}
+		}
+		return out;
 	}
 
 	/**
@@ -1378,6 +1467,14 @@ public class MealtonFacade {
 		rangePlanner.regenerateRest(draft, kept);
 	}
 
+	public void removeDraftMeal(com.mealton.plan.RangePlanner.Draft draft, LocalDate date, int index) {
+		rangePlanner.removeMeal(draft, date, index);
+	}
+
+	public int missingDraftMeals(com.mealton.plan.RangePlanner.Draft draft) {
+		return rangePlanner.missingMeals(draft);
+	}
+
 	/**
 	 * Moves one meal of a draft to a day (toIndex -1 = in time order). The meal
 	 * keeps its tag.
@@ -1385,6 +1482,12 @@ public class MealtonFacade {
 	public void moveDraftMeal(com.mealton.plan.RangePlanner.Draft draft, LocalDate from, int fromIndex, LocalDate to,
 			int toIndex) {
 		rangePlanner.moveMeal(draft, from, fromIndex, to, toIndex);
+	}
+
+	/** Copies a meal of a draft to another place (see RangePlanner.copyMeal). */
+	public com.mealton.plan.PlannedMeal copyDraftMeal(com.mealton.plan.RangePlanner.Draft draft, LocalDate from,
+			int fromIndex, LocalDate to, int toIndex, boolean replace) {
+		return rangePlanner.copyMeal(draft, from, fromIndex, to, toIndex, replace);
 	}
 
 	/** Swaps the recipes of two meals of a draft; each place keeps its own tag. */

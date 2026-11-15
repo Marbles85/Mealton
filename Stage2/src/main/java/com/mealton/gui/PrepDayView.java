@@ -75,9 +75,31 @@ public class PrepDayView extends StackPane {
 	private final Set<String> done = new HashSet<>();
 	private List<Long> addedIds = new ArrayList<>();
 	private String listNote = "";
+	private final Memory memory;
+
+	/**
+	 * What the page remembers while the person leaves and comes back: the start
+	 * time and what was added to the shopping list.
+	 */
+	public static final class Memory {
+		String time = "10:00";
+		List<Long> addedIds = new ArrayList<>();
+		String note = "";
+		String signature = "";
+		int limit = 120;
+	}
 
 	public PrepDayView(MealtonFacade facade, Runnable onBack, Consumer<String> onSaved, Runnable onDataChanged,
 			LocalDate presetDate) {
+		this(facade, onBack, onSaved, onDataChanged, presetDate, new Memory());
+	}
+
+	public PrepDayView(MealtonFacade facade, Runnable onBack, Consumer<String> onSaved, Runnable onDataChanged,
+			LocalDate presetDate, Memory memory) {
+		this.memory = memory;
+		this.addedIds = memory.addedIds;
+		this.limit = memory.limit;
+		this.listNote = memory.note;
 		this.facade = facade;
 		this.onSaved = onSaved;
 		this.onBack = onBack;
@@ -102,10 +124,15 @@ public class PrepDayView extends StackPane {
 			prepTime.getItems().add(String.format("%02d:00", h));
 			prepTime.getItems().add(String.format("%02d:30", h));
 		}
-		prepTime.setValue("10:00");
+		prepTime.setValue(prepTime.getItems().contains(memory.time) ? memory.time : "10:00");
 		prepTime.getStyleClass().add("mp-combo");
 		prepDate.valueProperty().addListener((o, a, b) -> rebuildIfReady());
-		prepTime.valueProperty().addListener((o, a, b) -> rebuildIfReady());
+		prepTime.valueProperty().addListener((o, a, b) -> {
+			if (b != null) {
+				memory.time = b;
+			}
+			rebuildIfReady();
+		});
 		start.valueProperty().addListener((o, a, b) -> customDates());
 		end.valueProperty().addListener((o, a, b) -> customDates());
 
@@ -259,6 +286,7 @@ public class PrepDayView extends StackPane {
 			final int v = LIMITS[i];
 			limitBox.getChildren().add(button(LIMIT_NAMES[i], "mp-lim", () -> {
 				limit = v;
+				memory.limit = v;
 				drawLimits();
 				rebuildIfReady();
 			}));
@@ -275,6 +303,7 @@ public class PrepDayView extends StackPane {
 			}
 			customLimit.setStyle("");
 			limit = m;
+			memory.limit = m;
 			drawLimits();
 			rebuildIfReady();
 		};
@@ -419,8 +448,6 @@ public class PrepDayView extends StackPane {
 	// ------------------------------------------------------------------ building
 
 	private void build() {
-		listNote = "";
-		addedIds = new ArrayList<>();
 		String err = PrepScheduler.error(prepDate.getValue(), start.getValue(), end.getValue());
 		rangeInfo.getChildren().clear();
 		schedule = null;
@@ -450,10 +477,26 @@ public class PrepDayView extends StackPane {
 				error = e.getMessage();
 			}
 		}
+		// "added to the shopping list" only stays while it is still true: same missing
+		// items, still on the list
+		String sig = schedule == null ? ""
+				: schedule.shortRows().stream().map(r -> r.name() + "|" + r.unit()).sorted()
+						.collect(java.util.stream.Collectors.joining(","));
+		var onList = new java.util.HashSet<Long>();
+		facade.getShoppingItems().forEach(i -> onList.add(i.getId()));
+		addedIds = new ArrayList<>(addedIds);
+		addedIds.removeIf(id -> !onList.contains(id));
+		memory.addedIds = addedIds;
+		if (!sig.equals(memory.signature) || addedIds.isEmpty()) {
+			addedIds.clear();
+			listNote = "";
+		}
+		memory.signature = sig;
 		draw();
 	}
 
 	private void draw() {
+		memory.note = listNote;
 		content.getChildren().clear();
 		if (schedule == null) {
 			totalLabel.setText("–");
@@ -590,7 +633,8 @@ public class PrepDayView extends StackPane {
 			if (addedIds.isEmpty()) {
 				head.getChildren().add(button("Add " + shorts.size() + " missing "
 						+ (shorts.size() == 1 ? "item" : "items") + " to shopping list", "mp-primary", () -> {
-							addedIds = facade.addPrepShortToShoppingList(schedule);
+							addedIds = new ArrayList<>(facade.addPrepShortToShoppingList(schedule));
+							memory.addedIds = addedIds;
 							listNote = addedIds.isEmpty() ? "Those are already on your shopping list."
 									: "Added " + addedIds.size() + (addedIds.size() == 1 ? " item" : " items")
 											+ " to your list.";
@@ -604,6 +648,7 @@ public class PrepDayView extends StackPane {
 				Button undo = button("Undo", "mp-link", () -> {
 					facade.deleteShoppingItems(addedIds);
 					addedIds = new ArrayList<>();
+					memory.addedIds = addedIds;
 					listNote = "";
 					onDataChanged.run();
 					draw();
@@ -691,6 +736,10 @@ public class PrepDayView extends StackPane {
 						label(t.minutes() + " min", "mp-block-time"));
 				block.getStyleClass().addAll("mp-block", "mp-block-" + lane.toLowerCase(Locale.ROOT));
 				block.setPadding(new Insets(5, 8, 5, 8));
+				javafx.scene.control.Tooltip.install(block,
+						new javafx.scene.control.Tooltip(t.name() + "\n" + clock(t.startMinute()) + " \u00B7 "
+								+ t.minutes() + " min \u00B7 " + lane
+								+ (t.serves().isEmpty() ? "" : "\nFor: " + String.join(", ", t.serves()))));
 				block.layoutXProperty().bind(track.widthProperty().multiply((double) t.startMinute() / total).add(1));
 				block.prefWidthProperty()
 						.bind(track.widthProperty().multiply((double) t.minutes() / total).subtract(2));

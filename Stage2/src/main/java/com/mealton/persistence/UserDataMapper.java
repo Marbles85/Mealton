@@ -62,9 +62,11 @@ public final class UserDataMapper {
 
 		List<LibraryRow> library = new ArrayList<>();
 		List<OwnRecipeRow> own = new ArrayList<>();
+		java.util.Set<String> inUse = facade.recipeTitlesInUse();
 		for (Recipe r : facade.getRecipesForSaving()) {
-			if (r.isLibrary() && r.isDiscovered() && !r.isSaved()) {
-				continue; // generated recipes you did not keep are simply generated again next time
+			if (r.isLibrary() && r.isDiscovered() && !r.isSaved() && !inUse.contains(r.getTitle())) {
+				continue; // generated recipes you did not keep or plan are simply generated again next
+							// time
 			}
 			if (r.isLibrary() && !r.isDiscovered()) {
 				library.add(new LibraryRow(r.getTitle(), r.isSaved(), r.getRating(), r.getPhoto()));

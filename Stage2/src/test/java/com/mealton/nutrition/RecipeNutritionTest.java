@@ -44,10 +44,10 @@ class RecipeNutritionTest {
 
 	@Test
 	void anIngredientThatCannotBeWeighedIsNotCounted() {
-		// garlic has a piece weight but no density, so tablespoons cannot be turned
+		// an egg has a piece weight but no density, so tablespoons cannot be turned
 		// into grams
-		RecipeNutrition n = RecipeNutrition.of(recipe(1, new RecipeIngredient("garlic", 2, "tbsp")));
-		assertEquals(List.of("garlic"), n.notCounted());
+		RecipeNutrition n = RecipeNutrition.of(recipe(1, new RecipeIngredient("egg", 2, "tbsp")));
+		assertEquals(List.of("egg"), n.notCounted());
 		assertTrue(n.line().startsWith("No nutrition estimate"));
 	}
 

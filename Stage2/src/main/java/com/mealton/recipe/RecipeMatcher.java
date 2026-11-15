@@ -47,7 +47,13 @@ public class RecipeMatcher {
 			boolean found = false;
 			boolean usesExpiring = false;
 			for (PantryItem item : pantry) {
-				if (item.freshness(today) == Freshness.EXPIRED || !sameIngredient(needed.name(), item.getName())) {
+				boolean leftover = com.mealton.diary.MealLogService.LEFTOVER_CATEGORY
+						.equalsIgnoreCase(item.getCategory());
+				// a leftover counts only when it is exactly what the recipe asks for, never by
+				// a word in its name
+				if (item.freshness(today) == Freshness.EXPIRED
+						|| (leftover ? !com.mealton.util.TextMatch.sameName(needed.name(), item.getName())
+								: !sameIngredient(needed.name(), item.getName()))) {
 					continue;
 				}
 				found = true;
@@ -105,7 +111,9 @@ public class RecipeMatcher {
 	}
 
 	private static boolean sameIngredient(String a, String b) {
-		return com.mealton.util.TextMatch.sameName(a, b);
+		// the same name (typos and plurals allowed), or the same food: "baby spinach"
+		// is "spinach"
+		return com.mealton.util.TextMatch.sameName(a, b) || com.mealton.nutrition.FoodTable.sameFood(a, b);
 	}
 
 	/**

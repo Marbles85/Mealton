@@ -69,8 +69,23 @@ public class ShoppingService {
 	 * removed
 	 */
 	public int clearChecked() {
-		List<Long> ids = list.checkedItems().stream().map(ShoppingItem::getId).toList();
-		return deleteItems(ids);
+		List<ShoppingItem> bought = new java.util.ArrayList<>(list.checkedItems());
+		List<Long> ids = bought.stream().map(ShoppingItem::getId).toList();
+		int n = deleteItems(ids);
+		if (n > 0 && onBought != null) {
+			onBought.accept(bought);
+		}
+		return n;
+	}
+
+	private java.util.function.Consumer<List<ShoppingItem>> onBought;
+
+	/**
+	 * Called with the ticked items when they are cleared (they have been bought, so
+	 * the pantry can take them).
+	 */
+	public void setOnBought(java.util.function.Consumer<List<ShoppingItem>> onBought) {
+		this.onBought = onBought;
 	}
 
 	/** Forgets the undo/redo history, so loading saved items cannot be "undone". */

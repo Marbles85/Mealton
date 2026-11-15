@@ -369,14 +369,37 @@ public final class PrepScheduler {
 				forWhom.computeIfAbsent(k, x -> new LinkedHashSet<>()).add(m.recipe().getTitle());
 			}
 		}
-		Map<String, Double> have = new LinkedHashMap<>();
-		for (PantryItem p : pantry.getItems()) {
-			have.merge(key(p.getName(), p.getUnit()), p.getQuantity(), Double::sum);
-		}
 		List<Row> rows = new ArrayList<>();
 		for (Map.Entry<String, double[]> e : need.entrySet()) {
-			double h = have.getOrDefault(e.getKey(), 0.0);
 			String[] n = names.get(e.getKey());
+			double h = 0;
+			boolean found = false;
+			boolean comparable = true;
+			for (PantryItem p : pantry.getItems()) {
+				boolean leftover = com.mealton.diary.MealLogService.LEFTOVER_CATEGORY.equalsIgnoreCase(p.getCategory());
+				// a leftover counts only when it is the very thing the recipe asks for, never
+				// by a word in its name
+				if (!(com.mealton.util.TextMatch.sameName(n[0], p.getName())
+						|| !leftover && com.mealton.nutrition.FoodTable.sameFood(n[0], p.getName()))) {
+					continue;
+				}
+				found = true;
+				if (p.getUnit().equalsIgnoreCase(n[1])) {
+					h += p.getQuantity();
+				} else if (com.mealton.util.UnitConverter.isKnown(p.getUnit())
+						&& com.mealton.util.UnitConverter.isKnown(n[1])) {
+					try {
+						h += com.mealton.util.UnitConverter.convert(p.getQuantity(), p.getUnit(), n[1]);
+					} catch (IllegalArgumentException ex) {
+						comparable = false; // weight against volume
+					}
+				} else {
+					comparable = false;
+				}
+			}
+			if (found && !comparable) {
+				h = Math.max(h, e.getValue()[0]); // cannot compare the units: trust that you have it
+			}
 			rows.add(new Row(n[0], n[1], e.getValue()[0], h, Math.max(0, e.getValue()[0] - h),
 					new ArrayList<>(forWhom.get(e.getKey()))));
 		}

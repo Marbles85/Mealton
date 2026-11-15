@@ -1079,10 +1079,10 @@ public class RecipeBrowserView extends BorderPane {
 	private PantryItem expiringUsedBy(Recipe r) {
 		PantryItem best = null;
 		for (PantryItem p : facade.getExpiringItems()) {
-			String pn = p.getName().toLowerCase(Locale.ROOT);
+			boolean leftover = com.mealton.pantry.CategoryLayout.RECIPES.equalsIgnoreCase(p.getCategory());
 			for (RecipeIngredient i : r.getIngredients()) {
-				String in = i.name().toLowerCase(Locale.ROOT);
-				if (in.equals(pn) || in.contains(pn) || pn.contains(in)) {
+				if (com.mealton.util.TextMatch.sameName(i.name(), p.getName())
+						|| !leftover && com.mealton.nutrition.FoodTable.sameFood(i.name(), p.getName())) {
 					if (best == null || p.daysLeft() < best.daysLeft()) {
 						best = p;
 					}
@@ -2139,8 +2139,8 @@ public class RecipeBrowserView extends BorderPane {
 	 * does not fully know.
 	 */
 	private void addEstimateButton(VBox box, RecipeNutrition nutrition, Recipe original) {
-		if (original.isLibrary() || nutrition.isComplete() || nutrition.aiEstimated() || !facade.hasAgent()
-				|| estimating) {
+		if ((original.isLibrary() && !original.isInMyRecipes()) || nutrition.isComplete() || nutrition.aiEstimated()
+				|| !facade.hasAgent() || estimating) {
 			return;
 		}
 		Button ask = new Button("Estimate with Claude");
@@ -3096,10 +3096,8 @@ public class RecipeBrowserView extends BorderPane {
 				setMessageOnly(verb + saved.getTitle() + "'" + (editedRecipe == null ? " to My Recipes." : ".") + extra,
 						false);
 				onDataChanged.run();
-				showDetail();
-				if (facade.hasAgent()) {
-					estimateInBackground(saved.getId(), false); // fills gaps in the food table, quietly
-				}
+				showDetail(); // no automatic Claude estimate: it was slow and spent tokens; use the Estimate
+								// button
 			} catch (IllegalArgumentException ex) {
 				status.getStyleClass().setAll("label", "rc-err");
 				status.setText(ex.getMessage());

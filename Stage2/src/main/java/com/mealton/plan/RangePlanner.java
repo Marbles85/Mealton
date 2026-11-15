@@ -285,7 +285,55 @@ public final class RangePlanner {
 				day.set(i, new PlannedMeal(old.tag(), r, old.servings()));
 			}
 		}
+		fillMissing(draft, allowed, recent, usedCount);
 		refreshNumbers(draft);
+	}
+
+	/** Takes one meal out of the draft (nothing else moves). */
+	public void removeMeal(Draft draft, LocalDate date, int index) {
+		List<PlannedMeal> day = draft.meals.get(date);
+		if (day == null || index < 0 || index >= day.size()) {
+			throw new IllegalArgumentException("There is no meal there any more.");
+		}
+		day.remove(index);
+		refreshNumbers(draft);
+	}
+
+	/**
+	 * How many chosen meal types have no meal on some drafted day (after a removal,
+	 * say).
+	 */
+	public int missingMeals(Draft draft) {
+		int n = 0;
+		for (List<PlannedMeal> day : draft.meals.values()) {
+			for (String tag : orderedTags(draft.options().tags())) {
+				if (day.stream().noneMatch(m -> m.tag().equalsIgnoreCase(tag))) {
+					n++;
+				}
+			}
+		}
+		return n;
+	}
+
+	/**
+	 * Gives every day that lacks one of the chosen meal types a new recipe for it.
+	 */
+	private void fillMissing(Draft draft, List<Recipe> allowed, Set<Long> recent, Map<Long, Integer> usedCount) {
+		Options o = draft.options();
+		for (List<PlannedMeal> day : draft.meals.values()) {
+			for (String tag : orderedTags(o.tags())) {
+				if (day.stream().anyMatch(m -> m.tag().equalsIgnoreCase(tag))) {
+					continue;
+				}
+				Recipe r = pick(allowed, tag, o, day, usedCount, recent, null);
+				if (r == null) {
+					continue;
+				}
+				usedCount.merge(r.getId(), 1, Integer::sum);
+				day.add(new PlannedMeal(tag, r, 1));
+				day.sort((a, b) -> Integer.compare(order(a), order(b)));
+			}
+		}
 	}
 
 	/**
@@ -317,6 +365,45 @@ public final class RangePlanner {
 			target.add(Math.min(at, target.size()), moving);
 		}
 		refreshNumbers(draft);
+	}
+
+	/**
+	 * Copies a meal of the draft to another place (the original stays). With
+	 * {@code replace} the copy takes over the recipe of the meal at {@code toIndex}
+	 * (that place keeps its own tag); otherwise it is added as a new meal there.
+	 *
+	 * @param toIndex the position to take, or -1 to join the day in time order
+	 * @return the new (or changed) meal
+	 */
+	public PlannedMeal copyMeal(Draft draft, LocalDate from, int fromIndex, LocalDate to, int toIndex,
+			boolean replace) {
+		List<PlannedMeal> source = draft.meals.get(from);
+		List<PlannedMeal> target = draft.meals.get(to);
+		if (source == null || fromIndex < 0 || fromIndex >= source.size()) {
+			throw new IllegalArgumentException("There is no meal there any more.");
+		}
+		if (target == null) {
+			throw new IllegalArgumentException("Meals can only go on days inside the dates you chose.");
+		}
+		PlannedMeal original = source.get(fromIndex);
+		PlannedMeal copy;
+		if (replace) {
+			if (toIndex < 0 || toIndex >= target.size()) {
+				throw new IllegalArgumentException("There is no meal there any more.");
+			}
+			copy = new PlannedMeal(target.get(toIndex).tag(), original.recipe(), original.servings());
+			target.set(toIndex, copy);
+		} else {
+			copy = new PlannedMeal(original.tag(), original.recipe(), original.servings());
+			if (toIndex < 0) {
+				target.add(copy);
+				target.sort((a, b) -> Integer.compare(order(a), order(b))); // stable
+			} else {
+				target.add(Math.min(toIndex, target.size()), copy);
+			}
+		}
+		refreshNumbers(draft);
+		return copy;
 	}
 
 	/**
@@ -441,17 +528,69 @@ public final class RangePlanner {
 		return false;
 	}
 
+	private static final List<String> DESSERT_WORDS = List.of("ice cream", "cake", "cheesecake", "cupcake", "cookie",
+			"cookies", "brownie", "brownies", "pudding", "mousse", "fudge", "truffle", "truffles", "sorbet", "gelato",
+			"sundae", "frozen yogurt", "macaron", "macaroon", "macaroons", "donut", "doughnut", "cobbler", "crumble",
+			"tiramisu", "brittle", "candy", "toffee", "pavlova", "meringue", "trifle", "baklava", "halva", "flan",
+			"streusel", "chocolate", "caramel", "fruit salad", "custard", "sweet");
+	/** Words that make a "cake" or "pudding" a savoury dish. */
+	private static final List<String> SAVOURY_WORDS = List.of("crab", "fish", "salmon", "tuna", "potato cake",
+			"rice cake", "yorkshire", "black pudding", "mole", "chili", "chilli", "meat", "chickpea", "lentil",
+			"sweet potato", "sweet and sour", "sweet & sour", "sweet chilli");
+	private static final List<String> SWEET_PIES = List.of("apple", "pumpkin", "pecan", "key lime", "lemon", "cherry",
+			"banana", "berry", "blueberry", "peach", "custard", "cream", "chocolate", "mince", "rhubarb", "sugar");
+
+	/**
+	 * True for desserts and sweets (ice cream, cake, cookies...): they do not
+	 * belong on a breakfast, lunch or dinner.
+	 */
+	static boolean looksLikeDessert(Recipe r) {
+		for (String tag : r.getAiTags()) {
+			if (tag.equals("dessert") || tag.equals("desert") || tag.equals("sweet") || tag.equals("sweets")) {
+				return true;
+			}
+		}
+		String t = " " + r.getTitle().toLowerCase(Locale.ROOT).replace('-', ' ') + " ";
+		for (String s : SAVOURY_WORDS) {
+			if (t.contains(s)) {
+				return false;
+			}
+		}
+		for (String w : DESSERT_WORDS) {
+			if (t.contains(" " + w + " ") || t.contains(" " + w + "s ")) {
+				return true;
+			}
+		}
+		if (t.contains(" pie ") || t.contains(" tart ") || t.contains(" pies ")) {
+			for (String w : SWEET_PIES) {
+				if (t.contains(" " + w + " ") || t.contains(w + " pie") || t.contains(w + " tart")) {
+					return true;
+				}
+			}
+		}
+		return false;
+	}
+
 	private Recipe pick(List<Recipe> allowed, String tag, Options o, List<PlannedMeal> sameDay, Map<Long, Integer> used,
 			Set<Long> recent, Recipe avoid) {
 		boolean breakfast = tag.equals("Breakfast");
+		boolean mainMeal = breakfast || tag.equals("Lunch") || tag.equals("Dinner");
 		List<Recipe> pool = new ArrayList<>();
 		for (Recipe r : allowed) {
-			if (looksLikeBreakfast(r) == breakfast) {
+			if (looksLikeBreakfast(r) == breakfast && !(mainMeal && looksLikeDessert(r))) {
 				pool.add(r);
 			}
 		}
 		if (pool.isEmpty()) {
-			pool = new ArrayList<>(allowed);
+			// nothing fits the meal: any non-dessert recipe, and only then anything at all
+			for (Recipe r : allowed) {
+				if (!(mainMeal && looksLikeDessert(r))) {
+					pool.add(r);
+				}
+			}
+			if (pool.isEmpty()) {
+				pool = new ArrayList<>(allowed);
+			}
 		}
 		List<Recipe> fresh = new ArrayList<>(pool);
 		fresh.removeIf(r -> sameDay.stream().anyMatch(m -> m.recipe().getId() == r.getId())

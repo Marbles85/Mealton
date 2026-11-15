@@ -21,7 +21,9 @@ final class Icons {
 	static final String PROFILE = "M16 8a4 4 0 1 1-8 0a4 4 0 0 1 8 0z M4 21a8 8 0 0 1 16 0";
 	static final String SEND = "M22 2L11 13 M22 2l-7 20l-4-9l-9-4z";
 	static final String MINUS = "M5 12h14";
+	static final String PLUS = "M12 5v14 M5 12h14";
 	static final String CHEVRON_DOWN = "M6 9l6 6l6-6";
+	static final String CHEVRON_LEFT = "M15 18l-6-6l6-6";
 	static final String CHEVRON_RIGHT = "M9 18l6-6l-6-6";
 	static final String ALERT = "M12 2a10 10 0 1 0 0 20a10 10 0 1 0 0-20z M12 8v4 M12 16h.01";
 	static final String LOGOUT = "M9 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h4 M16 17l5-5l-5-5 M21 12H9";

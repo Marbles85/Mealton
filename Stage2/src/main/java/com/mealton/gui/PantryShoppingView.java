@@ -31,6 +31,7 @@ import javafx.scene.control.DatePicker;
 import javafx.scene.control.Label;
 import javafx.scene.control.ScrollPane;
 import javafx.scene.control.TextField;
+import javafx.scene.control.Tooltip;
 import javafx.scene.input.ClipboardContent;
 import javafx.scene.input.Dragboard;
 import javafx.scene.input.TransferMode;
@@ -328,7 +329,8 @@ public class PantryShoppingView extends BorderPane implements PantryObserver {
 
 	private void clearChecked() {
 		int n = facade.clearChecked();
-		say(n == 1 ? "1 checked item cleared." : n + " checked items cleared.");
+		say(n == 1 ? "1 checked item cleared and added to your pantry."
+				: n + " checked items cleared and added to your pantry.");
 		rebuild();
 	}
 
@@ -843,6 +845,15 @@ public class PantryShoppingView extends BorderPane implements PantryObserver {
 			});
 		}
 		head.getChildren().add(dot);
+		if (!editing && !items.isEmpty()) {
+			dot.setCursor(javafx.scene.Cursor.HAND);
+			dot.setOnMouseClicked(e -> {
+				toggleGroup(items);
+				e.consume();
+			});
+			Tooltip.install(dot, new Tooltip(pantryView ? "Click to select or deselect everything here"
+					: "Click to tick or untick everything here"));
+		}
 
 		boolean canRename = editing && !pinnedGroup && !recipes;
 		if (canRename) {
@@ -904,6 +915,15 @@ public class PantryShoppingView extends BorderPane implements PantryObserver {
 				});
 				head.getChildren().add(del);
 			}
+		} else if (!pantryView && !editing && !items.isEmpty()) {
+			boolean allTicked = true;
+			for (Object o : items) {
+				allTicked &= ((ShoppingItem) o).isChecked();
+			}
+			Button all = new Button(allTicked ? "Untick all" : "Tick all");
+			all.getStyleClass().setAll("button", "pn-link");
+			all.setOnAction(e -> toggleGroup(items));
+			head.getChildren().add(all);
 		} else if (pantryView && !editing && !items.isEmpty()) {
 			boolean allOn = true;
 			for (Object o : items) {
@@ -996,6 +1016,39 @@ public class PantryShoppingView extends BorderPane implements PantryObserver {
 			});
 		}
 		return section;
+	}
+
+	/**
+	 * Ticks (or, if everything there is already ticked, unticks) a whole category.
+	 * On the pantry it selects or deselects instead.
+	 */
+	private void toggleGroup(List<Object> items) {
+		if (pantryView) {
+			boolean allOn = true;
+			for (Object o : items) {
+				allOn &= selected.contains(((PantryItem) o).getId());
+			}
+			for (Object o : items) {
+				long id = ((PantryItem) o).getId();
+				if (allOn) {
+					selected.remove(id);
+				} else {
+					selected.add(id);
+				}
+			}
+		} else {
+			boolean allTicked = true;
+			for (Object o : items) {
+				allTicked &= ((ShoppingItem) o).isChecked();
+			}
+			for (Object o : items) {
+				ShoppingItem s = (ShoppingItem) o;
+				if (s.isChecked() == allTicked) {
+					facade.toggleShoppingItem(s.getId());
+				}
+			}
+		}
+		rebuild();
 	}
 
 	/**

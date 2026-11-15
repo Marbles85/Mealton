@@ -328,7 +328,11 @@ public class FoodDiaryView extends VBox {
 	}
 
 	private static Button stepButton(String text, Runnable action) {
-		Button b = new Button(text);
+		Button b = new Button();
+		// drawn as a vector icon, so it never depends on a font having the symbol
+		b.setGraphic(
+				Icons.of("+".equals(text) ? Icons.PLUS : Icons.MINUS, 16, javafx.scene.paint.Color.web("#3e4a42")));
+		b.setAccessibleText("+".equals(text) ? "More" : "Less");
 		b.getStyleClass().add("lf-step");
 		b.setOnAction(e -> action.run());
 		return b;
@@ -1629,7 +1633,10 @@ public class FoodDiaryView extends VBox {
 	}
 
 	private Button arrow(String text, String tip, Runnable action) {
-		Button b = new Button(text);
+		Button b = new Button();
+		b.setGraphic(Icons.of("\u2039".equals(text) ? Icons.CHEVRON_LEFT : Icons.CHEVRON_RIGHT, 16,
+				javafx.scene.paint.Color.web("#3e4a42")));
+		b.setAccessibleText(tip);
 		b.getStyleClass().add("lf-arrow");
 		b.setTooltip(new javafx.scene.control.Tooltip(tip));
 		b.setOnAction(e -> action.run());

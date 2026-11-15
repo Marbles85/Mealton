@@ -64,6 +64,97 @@ public class MealPlanView extends StackPane {
 	private record DragRef(LocalDate date, int index) {
 	}
 
+	/** Edit week: tick meals, then delete them (drag and drop works as usual). */
+	private boolean editing;
+	private final java.util.Set<String> picked = new java.util.HashSet<>();
+
+	private static String pickKey(LocalDate d, int i) {
+		return d + "#" + i;
+	}
+
+	private List<LocalDate> weekDays() {
+		LocalDate monday = CalendarService.weekStart(focus);
+		List<LocalDate> days = new java.util.ArrayList<>();
+		for (int i = 0; i < 7; i++) {
+			days.add(monday.plusDays(i));
+		}
+		return days;
+	}
+
+	private int mealsInWeek() {
+		int n = 0;
+		for (LocalDate d : weekDays()) {
+			n += facade.getPlannedMeals(d).size();
+		}
+		return n;
+	}
+
+	private void toggleDay(LocalDate d) {
+		int n = facade.getPlannedMeals(d).size();
+		boolean all = n > 0;
+		for (int i = 0; i < n; i++) {
+			all &= picked.contains(pickKey(d, i));
+		}
+		for (int i = 0; i < n; i++) {
+			if (all) {
+				picked.remove(pickKey(d, i));
+			} else {
+				picked.add(pickKey(d, i));
+			}
+		}
+		rebuild();
+	}
+
+	private void deletePicked() {
+		java.util.Map<LocalDate, List<Integer>> byDay = new java.util.TreeMap<>();
+		for (LocalDate d : weekDays()) {
+			for (int i = 0; i < facade.getPlannedMeals(d).size(); i++) {
+				if (picked.contains(pickKey(d, i))) {
+					byDay.computeIfAbsent(d, k -> new java.util.ArrayList<>()).add(i);
+				}
+			}
+		}
+		int count = 0;
+		for (var e : byDay.entrySet()) {
+			List<Integer> idx = e.getValue();
+			for (int k = idx.size() - 1; k >= 0; k--) { // last first, so the numbers stay right
+				facade.removePlannedMeal(e.getKey(), idx.get(k));
+				count++;
+			}
+		}
+		picked.clear();
+		say("Deleted " + count + (count == 1 ? " meal" : " meals") + ". Undo brings them back one at a time.");
+		onDataChanged.run();
+		rebuild();
+	}
+
+	private Node editBar() {
+		int total = mealsInWeek();
+		boolean all = total > 0 && picked.size() >= total;
+		Label count = label(picked.size() + " of " + total
+				+ " selected. Tick meals (or click a day's name to tick the whole day), or drag them to rearrange.",
+				"mp-hint");
+		count.setWrapText(true);
+		HBox.setHgrow(count, Priority.ALWAYS);
+		Button selectAll = button(all ? "Deselect all" : "Select all", "mp-outline", () -> {
+			picked.clear();
+			if (!all) {
+				for (LocalDate d : weekDays()) {
+					for (int i = 0; i < facade.getPlannedMeals(d).size(); i++) {
+						picked.add(pickKey(d, i));
+					}
+				}
+			}
+			rebuild();
+		});
+		selectAll.setDisable(total == 0);
+		Button delete = button("Delete selected", "mp-danger", this::deletePicked);
+		delete.setDisable(picked.isEmpty());
+		HBox bar = new HBox(10, count, selectAll, delete);
+		bar.setAlignment(Pos.CENTER_LEFT);
+		return bar;
+	}
+
 	private static final Map<String, String> TIMES = Map.of("Breakfast", "8:00", "Lunch", "12:30", "Snack", "15:00",
 			"Post-workout", "17:30", "Dinner", "19:00");
 
@@ -165,6 +256,7 @@ public class MealPlanView extends StackPane {
 	}
 
 	private void run(Runnable action) {
+		picked.clear(); // meal positions may change
 		try {
 			action.run();
 		} catch (IllegalArgumentException e) {
@@ -242,7 +334,9 @@ public class MealPlanView extends StackPane {
 		}
 		VBox main = new VBox(10);
 		main.setMinWidth(0);
-		if (view == View.WEEK) {
+		if (view == View.WEEK && editing) {
+			main.getChildren().add(editBar());
+		} else if (view == View.WEEK) {
 			Label hint = label(
 					"Drop a meal on another to swap them. Drop it on the line between two meals to slot it in \u2014 it keeps its tag and the rest shift down.",
 					"mp-hint");
@@ -305,22 +399,39 @@ public class MealPlanView extends StackPane {
 		undo.setDisable(!facade.canUndoCalendar());
 		Button redo = button("Redo", "mp-outline",
 				() -> run(() -> say(facade.redoCalendar() ? "Redone." : "Nothing to redo.")));
+		Button editWeek = button(editing ? "Done editing" : "Edit week", editing ? "mp-primary" : "mp-outline", () -> {
+			editing = !editing;
+			picked.clear();
+			rebuild();
+		});
+		editWeek.setVisible(view == View.WEEK);
+		editWeek.setManaged(view == View.WEEK);
 		Button prep = button("Schedule prep day", "mp-outline", this::showPrepDay);
 		Button plan = button("Plan meals", "mp-primary", this::planMeals);
-		HBox right = new HBox(10, today, seg, undo, prep, plan);
-		if (facade.canRedoCalendar()) {
-			right.getChildren().add(right.getChildren().indexOf(undo) + 1, redo);
-		}
+		HBox right = new HBox(10, today, seg);
 		right.setAlignment(Pos.CENTER_RIGHT);
 		right.setFillHeight(false);
 		seg.setMaxHeight(Region.USE_PREF_SIZE);
 		seg.setAlignment(Pos.CENTER);
+		HBox actions = new HBox(10, editWeek, undo, prep, plan);
+		if (facade.canRedoCalendar()) {
+			actions.getChildren().add(actions.getChildren().indexOf(undo) + 1, redo);
+		}
+		actions.setAlignment(Pos.CENTER_RIGHT);
+		// buttons keep their full text: never shortened to "We..." or "Un..."
+		for (Node n : List.of(today, editWeek, undo, redo, prep, plan, range)) {
+			((Region) n).setMinWidth(Region.USE_PREF_SIZE);
+		}
+		for (Node n : seg.getChildren()) {
+			((Region) n).setMinWidth(Region.USE_PREF_SIZE);
+		}
 		HBox row = new HBox(16, left, right);
 		row.setAlignment(Pos.CENTER_LEFT);
-		return row;
+		return new VBox(10, row, actions);
 	}
 
 	private void step(int dir) {
+		picked.clear();
 		switch (view) {
 		case DAY:
 			focus = focus.plusDays(dir);
@@ -383,6 +494,15 @@ public class MealPlanView extends StackPane {
 		Label num = label(monthDay(date), isToday ? "mp-col-today" : "mp-col-date");
 		Label note = label(isToday ? "Today" : past ? "Past" : "", "mp-col-note");
 		VBox head = new VBox(2, name, num, note);
+		if (editing && view == View.WEEK) {
+			head.setStyle("-fx-cursor: hand;");
+			head.setOnMouseClicked(e -> {
+				toggleDay(date);
+				e.consume();
+			});
+			javafx.scene.control.Tooltip.install(head,
+					new javafx.scene.control.Tooltip("Click to tick or untick every meal on this day"));
+		}
 		VBox col = new VBox(8, head);
 		col.setPadding(new Insets(12));
 		col.getStyleClass().add(past ? "mp-col-past" : isToday ? "mp-col-now" : "mp-col");
@@ -458,9 +578,35 @@ public class MealPlanView extends StackPane {
 		kcal.setWrapText(true);
 		kcal.setMinHeight(Region.USE_PREF_SIZE);
 		VBox card = new VBox(3, tag, name, kcal);
+		boolean picking = editing && view == View.WEEK && !big;
+		if (picking) {
+			javafx.scene.control.CheckBox box = new javafx.scene.control.CheckBox();
+			box.setSelected(picked.contains(pickKey(date, index)));
+			box.setOnAction(e -> {
+				if (box.isSelected()) {
+					picked.add(pickKey(date, index));
+				} else {
+					picked.remove(pickKey(date, index));
+				}
+				rebuild();
+			});
+			card.getChildren().add(0, box);
+			if (box.isSelected()) {
+				card.setStyle("-fx-border-color: #4f6b57; -fx-border-width: 2; -fx-border-radius: 12;");
+			}
+		}
 		card.getStyleClass().add(past ? "mp-card-past" : "mp-card");
 		card.setStyle(card.getStyle() + "-fx-cursor: hand;");
 		card.setOnMouseClicked(e -> {
+			if (picking) {
+				String k = pickKey(date, index);
+				if (!picked.remove(k)) {
+					picked.add(k);
+				}
+				rebuild();
+				e.consume();
+				return;
+			}
 			focus = date;
 			details(date, index);
 			e.consume();
@@ -2046,6 +2192,8 @@ public class MealPlanView extends StackPane {
 		getChildren().setAll(new PrepDayView(facade, this::backToCalendar, message -> {
 			say(message);
 			backToCalendar();
-		}, onDataChanged, preset));
+		}, onDataChanged, preset, prepMemory));
 	}
+
+	private final PrepDayView.Memory prepMemory = new PrepDayView.Memory();
 }

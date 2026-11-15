@@ -70,6 +70,8 @@ public class PlanMealsView extends StackPane {
 	private final CheckBox dinner = new CheckBox("Dinner");
 	private final CheckBox pantryFirst = new CheckBox("Use pantry items first");
 	private final CheckBox avoidRecent = new CheckBox("Avoid meals from last week");
+	private final CheckBox moreOnline = new CheckBox("Also look for new recipes online");
+	private boolean searching;
 	private boolean suggestedOn = true;
 	private final Set<String> picked = new LinkedHashSet<>();
 	private final List<String> custom = new ArrayList<>();
@@ -204,7 +206,8 @@ public class PlanMealsView extends StackPane {
 		card.getChildren().add(cuisineBox);
 		pantryFirst.setSelected(true);
 		avoidRecent.setSelected(true);
-		card.getChildren().addAll(pantryFirst, avoidRecent);
+		moreOnline.setSelected(true);
+		card.getChildren().addAll(pantryFirst, avoidRecent, moreOnline);
 
 		generate.getStyleClass().setAll("button", "mp-primary");
 		generate.setMaxWidth(Double.MAX_VALUE);
@@ -413,6 +416,9 @@ public class PlanMealsView extends StackPane {
 	// ------------------------------------------------------------------ generating
 
 	private void generate() {
+		if (searching) {
+			return;
+		}
 		formError = "";
 		toast = "";
 		try {
@@ -444,9 +450,77 @@ public class PlanMealsView extends StackPane {
 			RangePlanner.Options o = new RangePlanner.Options(start.getValue(), end.getValue(), tags, override,
 					d.startsWith("High"), kcal, new LinkedHashSet<>(activeCuisines()), pantryFirst.isSelected(),
 					avoidRecent.isSelected());
+			if (moreOnline.isSelected()) {
+				List<String> hints = new ArrayList<>(o.cuisines());
+				if (hints.size() > 3) {
+					hints = hints.subList(0, 3);
+				}
+				if (tags.contains("Breakfast")) {
+					hints.add("breakfast");
+				}
+				if (hints.isEmpty()) {
+					hints.add("");
+				}
+				final List<String> ask = hints;
+				searching = true;
+				generate.setDisable(true);
+				draft = null;
+				formError = "";
+				drawSearching();
+				javafx.concurrent.Task<List<com.mealton.recipe.Recipe>> task = new javafx.concurrent.Task<>() {
+					@Override
+					protected List<com.mealton.recipe.Recipe> call() {
+						return facade.findRecipesForPlan(ask, 12);
+					}
+				};
+				task.setOnSucceeded(ev -> {
+					int added = facade.swapInDiscoveredRecipes(task.getValue());
+					finishDraft(o, added);
+				});
+				task.setOnFailed(ev -> finishDraft(o, 0));
+				Thread t = new Thread(task, "plan-recipes");
+				t.setDaemon(true);
+				t.start();
+				return;
+			}
 			draft = facade.draftPlan(o);
 			kept.clear();
 			setOptionsHidden(true); // give the calendar the whole width
+		} catch (IllegalArgumentException e) {
+			formError = e.getMessage();
+			draft = null;
+			setOptionsHidden(false);
+		}
+		drawResults();
+	}
+
+	private void drawSearching() {
+		results.getChildren().clear();
+		VBox box = new VBox(8);
+		box.getStyleClass().add("mp-card-big");
+		box.getChildren().add(label("Finding recipes\u2026", "mp-h2"));
+		Label text = label(
+				"Mealton is checking TheMealDB and Spoonacular for new recipes to choose from, then it will build your plan.",
+				"mp-hint");
+		text.setWrapText(true);
+		box.getChildren().add(text);
+		results.getChildren().add(box);
+	}
+
+	/**
+	 * The online search is over (it may have found nothing): build the draft from
+	 * every recipe now loaded.
+	 */
+	private void finishDraft(RangePlanner.Options o, int added) {
+		searching = false;
+		generate.setDisable(false);
+		try {
+			draft = facade.draftPlan(o);
+			kept.clear();
+			if (added > 0) {
+				toast = "Added " + added + " new recipe" + (added == 1 ? "" : "s") + " from online to choose from.";
+			}
+			setOptionsHidden(true);
 		} catch (IllegalArgumentException e) {
 			formError = e.getMessage();
 			draft = null;
@@ -542,21 +616,40 @@ public class PlanMealsView extends StackPane {
 			}
 			drawResults();
 		});
-		Button regen = button(kept.isEmpty() ? "Regenerate all" : "Regenerate the rest", "mp-outline", () -> {
-			facade.regenerateDraft(draft, kept);
-			toast = kept.isEmpty() ? "Made a fresh set of meals." : "Kept " + kept.size() + " and replaced the rest.";
-			drawResults();
-		});
-		regen.setDisable(all);
+		int missing = facade.missingDraftMeals(draft);
+		Button regen = button(
+				missing > 0 && all ? "Fill empty meals" : kept.isEmpty() ? "Regenerate all" : "Regenerate the rest",
+				"mp-outline", () -> {
+					var keptNow = keptMeals();
+					int before = draft.mealCount();
+					facade.regenerateDraft(draft, kept);
+					afterDraftEdit(keptNow);
+					int added = draft.mealCount() - before;
+					toast = (kept.isEmpty() ? "Made a fresh set of meals."
+							: "Kept " + kept.size() + " and replaced the rest.")
+							+ (added > 0 ? " Filled " + added + " empty meal" + (added == 1 ? "" : "s") + "." : "");
+					drawResults();
+				});
+		regen.setDisable(all && missing == 0);
 		keepAll.setMinWidth(Region.USE_PREF_SIZE);
 		regen.setMinWidth(Region.USE_PREF_SIZE);
 		VBox pt = new VBox(2, prev, help);
 		HBox.setHgrow(pt, Priority.ALWAYS);
 		pt.setMinWidth(0);
-		HBox bar = new HBox(10, pt, keepAll, regen);
+		Button dup = button(duplicateMode ? "\u29C9 Duplicate: on" : "\u29C9 Duplicate",
+				duplicateMode ? "mp-primary" : "mp-outline", () -> {
+					duplicateMode = !duplicateMode;
+					toast = duplicateMode ? "Duplicate is on: dragging a meal now copies it."
+							: "Duplicate is off: dragging moves meals again.";
+					drawResults();
+				});
+		Tooltip(dup,
+				"When on, dragging a meal makes a copy (so a recipe can repeat in the week). Holding Ctrl while dragging does the same.");
+		dup.setMinWidth(Region.USE_PREF_SIZE);
+		HBox bar = new HBox(10, pt, dup, keepAll, regen);
 		bar.setAlignment(Pos.CENTER_LEFT);
 		Label dragHint = label(
-				"Drag meals to shuffle them: drop on another meal to swap, on its top or bottom edge to slot in, or on a day to move it there. Nothing is saved until you apply.",
+				"Drag meals to shuffle them: drop on another meal to swap, on its top or bottom edge to slot in, or on a day to move it there. Turn on Duplicate (or hold Ctrl) to copy a meal instead, so a recipe can repeat; keep the copies and regenerate the rest for fresh ones. Nothing is saved until you apply.",
 				"mp-hint");
 		dragHint.setWrapText(true);
 		dragHint.setMinHeight(Region.USE_PREF_SIZE);
@@ -658,7 +751,8 @@ public class PlanMealsView extends StackPane {
 		col.setMinHeight(90);
 		col.setOnDragOver(e -> {
 			if (dragging != null) {
-				e.acceptTransferModes(TransferMode.MOVE);
+				e.acceptTransferModes(
+						duplicateMode ? new TransferMode[] { TransferMode.COPY } : TransferMode.COPY_OR_MOVE);
 			}
 			e.consume();
 		});
@@ -672,8 +766,9 @@ public class PlanMealsView extends StackPane {
 			if (dragging != null) {
 				Ref from = dragging;
 				dragging = null;
+				boolean copy = duplicateMode || e.getTransferMode() == TransferMode.COPY;
 				e.setDropCompleted(true);
-				moveDraftMeal(from, d, -1);
+				moveDraftMeal(from, d, -1, copy);
 			}
 			e.consume();
 		});
@@ -684,6 +779,8 @@ public class PlanMealsView extends StackPane {
 	// Apply)
 
 	private Ref dragging;
+	/** When on, dragging a meal copies it (Ctrl while dragging does the same). */
+	private boolean duplicateMode;
 
 	private static String zone(DragEvent e, Node card) {
 		double f = e.getY() / Math.max(1, card.getBoundsInLocal().getHeight());
@@ -723,10 +820,20 @@ public class PlanMealsView extends StackPane {
 		return out;
 	}
 
-	private void moveDraftMeal(Ref from, LocalDate to, int index) {
+	private void moveDraftMeal(Ref from, LocalDate to, int index, boolean copy) {
 		try {
 			PlannedMeal m = draft.meals().get(from.date()).get(from.index());
 			var keptNow = keptMeals();
+			if (copy) {
+				PlannedMeal made = facade.copyDraftMeal(draft, from.date(), from.index(), to, index, false);
+				if (keptNow.containsKey(m)) {
+					keptNow.put(made, Boolean.TRUE); // a copy of a kept meal is kept too
+				}
+				afterDraftEdit(keptNow);
+				toast = "Copied " + m.recipe().getTitle() + " to " + shortDay(to) + ", " + monthDay(to) + ".";
+				drawResults();
+				return;
+			}
 			facade.moveDraftMeal(draft, from.date(), from.index(), to, index);
 			afterDraftEdit(keptNow);
 			toast = "Moved " + m.recipe().getTitle() + " to " + shortDay(to) + ", " + monthDay(to)
@@ -738,13 +845,30 @@ public class PlanMealsView extends StackPane {
 		drawResults();
 	}
 
-	private void dropOnMeal(Ref from, LocalDate date, int index, String zone) {
-		if (from.date().equals(date) && from.index() == index) {
+	private void dropOnMeal(Ref from, LocalDate date, int index, String zone, boolean copy) {
+		if (from.date().equals(date) && from.index() == index && !copy) {
 			drawResults();
 			return;
 		}
 		if (!zone.equals("swap")) {
-			moveDraftMeal(from, date, zone.equals("before") ? index : index + 1);
+			moveDraftMeal(from, date, zone.equals("before") ? index : index + 1, copy);
+			return;
+		}
+		if (copy) {
+			// dropping a copy on top of a meal puts the recipe in that meal's place
+			try {
+				PlannedMeal a = draft.meals().get(from.date()).get(from.index());
+				var keptNow = keptMeals();
+				PlannedMeal made = facade.copyDraftMeal(draft, from.date(), from.index(), date, index, true);
+				if (keptNow.containsKey(a)) {
+					keptNow.put(made, Boolean.TRUE);
+				}
+				afterDraftEdit(keptNow);
+				toast = "Copied " + a.recipe().getTitle() + " onto " + shortDay(date) + ", " + monthDay(date) + ".";
+			} catch (IllegalArgumentException | IndexOutOfBoundsException ex) {
+				toast = ex.getMessage() == null ? "That meal is gone." : ex.getMessage();
+			}
+			drawResults();
 			return;
 		}
 		try {
@@ -800,7 +924,15 @@ public class PlanMealsView extends StackPane {
 		});
 		Tooltip(roll, "Regenerate this meal");
 		roll.setDisable(isKept);
-		HBox tools = new HBox(4, lock, roll);
+		Button remove = button("\u2715", "mp-mini", () -> {
+			var keptNow = keptMeals();
+			facade.removeDraftMeal(draft, d, i);
+			afterDraftEdit(keptNow);
+			toast = "Removed " + m.recipe().getTitle() + ". Press Regenerate to fill the empty meal with a new recipe.";
+			drawResults();
+		});
+		Tooltip(remove, "Remove this meal from the plan");
+		HBox tools = new HBox(4, lock, roll, remove);
 		text.setMinWidth(0);
 		tools.setMinWidth(0);
 		name.setMinWidth(0);
@@ -809,7 +941,7 @@ public class PlanMealsView extends StackPane {
 		card.setMinWidth(0);
 		card.getStyleClass().add(isKept ? "mp-pv-card-kept" : "mp-pv-card");
 		card.setOnDragDetected(e -> {
-			Dragboard db = card.startDragAndDrop(TransferMode.MOVE);
+			Dragboard db = card.startDragAndDrop(TransferMode.COPY_OR_MOVE);
 			ClipboardContent c = new ClipboardContent();
 			c.putString(m.recipe().getTitle());
 			db.setContent(c);
@@ -823,7 +955,8 @@ public class PlanMealsView extends StackPane {
 		});
 		card.setOnDragOver(e -> {
 			if (dragging != null) {
-				e.acceptTransferModes(TransferMode.MOVE);
+				e.acceptTransferModes(
+						duplicateMode ? new TransferMode[] { TransferMode.COPY } : TransferMode.COPY_OR_MOVE);
 				clearHint(card);
 				card.getStyleClass().add("mp-drop-" + zone(e, card));
 			}
@@ -834,10 +967,11 @@ public class PlanMealsView extends StackPane {
 			if (dragging != null) {
 				Ref from = dragging;
 				String z = zone(e, card);
+				boolean copy = duplicateMode || e.getTransferMode() == TransferMode.COPY;
 				dragging = null;
 				clearHint(card);
 				e.setDropCompleted(true);
-				dropOnMeal(from, d, i, z);
+				dropOnMeal(from, d, i, z, copy);
 			}
 			e.consume();
 		});
