@@ -6,25 +6,33 @@ EECS 3311, Fall 2026. Java implementation of the Mealton design from Stage 1. It
 
 | ID  | Feature | Where to use it |
 |-----|---------|-----------------|
-| F06 | Pantry with freshness / expiry alerts | CLI `pantry ...`, GUI "Pantry & List", chat |
-| F12 | Shopping list with undo / redo | CLI `shop ...`, GUI "Pantry & List", chat |
-| F13 | Recipes: save, rate, list, scale | CLI `recipe ...`, chat |
-| F07 | Recipe ideas ranked against the pantry | CLI `recipe suggest`, chat |
-| F08 | Missing ingredients go to the shopping list | CLI `recipe missing`, chat |
-| F10 | Unit conversion and serving scaling | CLI `convert`, `scale`, chat |
-| F01 | Profile: diet, allergies, calorie and macro goals (recipes show warnings) | CLI `profile ...`, chat |
-| F04 | Food diary / macro tracker compared with profile goals | CLI `food ...`, chat |
-| F02 | Weekly meal plan (variety or pantry-first) | CLI `plan ...`, chat |
-| F14 | AI chat agent with tool use and memory | CLI `chat`, GUI "Mealton Chat" |
+| UC00 | Accounts: sign up / log in, your data is saved per user | GUI login screen, CLI login prompt |
+| F01 | Profile: diet, allergies, calorie and macro goals (recipes show warnings) | GUI "Profile", CLI `profile ...`, chat |
+| F02 | AI meal plan for any dates (variety or pantry-first, cuisines, preview, rearrange, apply) | GUI "Meal plan" > Plan meals, CLI `plan ...`, chat |
+| F03 | Meal calendar with custom labels, move, swap, undo | GUI "Meal plan", CLI `calendar ...`, chat |
+| F04 | Food diary / macro tracker compared with profile goals | GUI "Log food", CLI `food ...`, chat |
+| F05 | Prep-day planner | GUI "Meal plan" > Prep day, CLI `plan prep`, chat |
+| F06 | Pantry with freshness / expiry alerts | GUI "Pantry & list", CLI `pantry ...`, chat |
+| F07 | Recipe ideas ranked against the pantry (Can make now, Almost there) | GUI "Recipes", CLI `recipe now/almost/suggest`, chat |
+| F08 | Missing ingredients go to the shopping list | GUI button, CLI `recipe missing`, chat |
+| F09 | Recipe filters, search (typos and plurals are fine) and tags | GUI "Recipes", CLI `recipe tags`, chat |
+| F10 | Unit conversion and serving scaling | GUI recipe page, CLI `convert`, `scale`, chat |
+| F11 | Nutrition breakdown (built-in table, AI estimate for gaps) | GUI recipe page, CLI `recipe nutrition`, chat |
+| F12 | Shopping list with undo / redo | GUI "Pantry & list", CLI `shop ...`, chat |
+| F13 | Recipes: rate, save (heart), My Recipes, edit saved recipes, import from a link | GUI "Recipes", CLI `recipe ...`, chat |
+| F14 | AI chat agent with tool use and memory | GUI "Ask Mealton", CLI `chat` |
 
-Stage 1 features that are **not** implemented are listed, with reasons, in the Stage 2 report.
+The Stage 2 report has the full feature-to-code map.
+
+Differences from the Stage 1 plan, and known limitations, are listed in the Stage 2 report.
 
 ## Requirements
 
 - Java 17 or newer (JDK)
 - Maven 3.8+ (Eclipse includes one: m2e)
 - Internet access the first time (Maven downloads JavaFX, Jackson and JUnit)
-- Optional: an Anthropic API key for the real AI. Without one the app still runs; only the AI chat is off.
+- Optional: an Anthropic API key for the real AI. Without one the app still runs; only the AI chat and "Generate with Mealton" are off.
+- Optional: a free Spoonacular key for more recipes. Without one, recipes come from TheMealDB only (no key needed).
 
 ## Install
 
@@ -43,6 +51,7 @@ The API key is kept **only** in a local file that is never committed.
 LLM_PROVIDER=claude
 LLM_MODEL=claude-haiku-5-5
 LLM_API_KEY=paste-your-own-key-here
+SPOONACULAR_API_KEY=paste-your-own-key-here
 ```
 
 3. `.env` is listed in `.gitignore`. Never commit it, never share it, and never show it in a recording.
@@ -54,6 +63,7 @@ Settings:
 | `LLM_PROVIDER` | `claude` for the real Claude API, or `mock` (default) for an offline stand-in with no real AI |
 | `LLM_MODEL` | Claude model name (default `claude-haiku-5-5`) |
 | `LLM_API_KEY` | your Anthropic API key (needed for `claude`) |
+| `SPOONACULAR_API_KEY` | optional; free key from https://spoonacular.com/food-api. Its free plan has a daily limit; when it is used up the app says so and uses TheMealDB only |
 
 Real environment variables with the same names override `.env`. If the key is missing or wrong, the app prints "AI assistant is OFF: ..." and everything except chat keeps working.
 
@@ -67,7 +77,7 @@ From a terminal in `Stage2`: GUI with `mvn javafx:run`; CLI with `mvn compile ex
 
 ## Using the CLI
 
-Type `help` for the full list. All data is kept in memory while the program runs.
+Type `help` for the full list. Your data is saved to your account file when you log out or exit (the GUI also saves as you work).
 
 ```
 pantry add milk 1 l --expires 2026-11-20
@@ -101,9 +111,20 @@ The reply ends with `[tools used: ...]`, which shows which features the AI used.
 
 ## Using the GUI
 
-- **Pantry & List**: add and remove pantry items, see expiry colours, manage the shopping list with undo/redo.
-- **Mealton Chat**: talk to the AI. Changes it makes appear in the other page straight away.
-- Calendar, Recipes and Profile pages are not built; the same features are available through chat and the CLI.
+Log in or create an account (an email address is used as the username). Your data is saved per user automatically as you work, and again when you log out or close the app.
+
+- **Recipes**: four tabs (Can make now, Almost there, All recipes, My Recipes), 30 recipes per page. Search is forgiving (capitals, spaces, plurals and typos are fine). Filter chips can be stacked, and a **Mealton generated** chip shows recipes the AI wrote or edited. **Refresh** and the search bar look for new recipes in TheMealDB and Spoonacular (no AI tokens). The **Generate with Mealton** button at the bottom asks Claude to write one recipe; it is saved to My Recipes. Click a recipe to see steps, nutrition, scaling, the heart (save), and Edit (for saved recipes).
+- **Log food**: log meals and see macro bars against your goals.
+- **Meal plan**: the calendar, **Plan meals** (choose dates, meals, cuisines, then preview, drag to rearrange, lock the ones you like and regenerate the rest, then apply) and **Prep day**.
+- **Pantry & list**: pantry with expiry colours; shopping list with undo / redo.
+- **Profile**: diet, allergies, goals.
+- **Ask Mealton**: chat with the AI; changes it makes appear on the other pages straight away.
+
+Some recipes loaded from the web can come through incomplete or glitched. Each one has a "View original" link for the most accurate version.
+
+### AI cost
+
+Only these use Claude: the chat, the Generate with Mealton button, nutrition estimates for ingredients the built-in table does not know, import-from-link tidy-up and the prep-day text. Searching, filtering and Refresh never do. Every Claude call prints a line in the console, for example `[Mealton] Claude call from ...` followed by `Claude replied: N input / N output tokens`, so you can see exactly what is used.
 
 ## Run the tests
 
@@ -111,11 +132,11 @@ In Eclipse: right-click `src/test/java` → Run As → JUnit Test. Or `mvn test`
 
 ## Design patterns used
 
-Facade/MVC (`MealtonFacade`), Command (shopping undo/redo), State (shopping item), Observer (pantry alerts, profile changes), Repository (pantry, recipes), Adapter (`LLMClient`, `ClaudeAdapter`), Factory (`LLMClientFactory`), Strategy (recipe ranking, meal planning), Composite (`WeekPlan`, `DayPlan`, `MealEntry`).
+Facade/MVC (`MealtonFacade`), Command (shopping and calendar undo/redo), State (shopping item), Observer (pantry alerts, profile changes), Repository (pantry, recipes, saved user data), Adapter (`LLMClient`, `ClaudeAdapter`, the recipe web APIs), Factory (`LLMClientFactory`), Strategy (recipe ranking, meal planning, `RecipeSource`), Composite (`WeekPlan`, `DayPlan`, `MealEntry`).
 
 ## Project layout (`src/main/java/com/mealton`)
 
-`pantry`, `shopping`, `command`, `recipe`, `profile`, `nutrition`, `plan`, `repository` (data and logic) · `facade` (single entry point) · `cli`, `gui` (user interfaces) · `llm`, `agent`, `agent/tools` (AI) · `config`, `util`.
+`pantry`, `shopping`, `command`, `recipe`, `profile`, `nutrition`, `diary`, `plan`, `repository`, `persistence`, `account` (data and logic) · `facade` (single entry point) · `cli`, `gui` (user interfaces) · `llm`, `agent`, `agent/tools` (AI) · `config`, `util`.
 
 ## Security notes
 
@@ -125,7 +146,9 @@ Facade/MVC (`MealtonFacade`), Command (shopping undo/redo), State (shopping item
 
 ## Known limitations
 
-- Data is not saved between runs (in-memory only).
+- Spoonacular's free plan has a daily limit; the app reports it and keeps working with TheMealDB.
+- Recipes loaded from the web can be incomplete or glitched; check the original link.
 - The profile check uses ingredient words (for example "chicken is not vegetarian"). It is a helpful warning, not a safety guarantee, and does not judge gluten-free or keto.
 - Food values come from a small built-in table of typical figures; other foods are AI estimates and are marked "(estimate)".
 - When two planned recipes share an ingredient, the shopping list gets the larger amount, not the sum.
+- A few GUI conveniences (for example month-view drag and drop) have no CLI equivalent.
