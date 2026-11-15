@@ -54,7 +54,7 @@ public class PantryInventory {
 
 	/** The pantry line with the same name and unit, if there is one. */
 	public Optional<PantryItem> findDuplicate(String name, String unit) {
-		return repository.findAll().stream().filter(p -> p.getName().equalsIgnoreCase(name)
+		return repository.findAll().stream().filter(p -> com.mealton.util.TextMatch.sameName(p.getName(), name)
 				&& p.getUnit().equalsIgnoreCase(unit == null ? "" : unit.trim())).findFirst();
 	}
 
@@ -79,8 +79,9 @@ public class PantryInventory {
 	}
 
 	private Optional<PantryItem> findDuplicate(PantryItem item) {
-		return repository.findAll().stream().filter(
-				p -> p.getName().equalsIgnoreCase(item.getName()) && p.getUnit().equalsIgnoreCase(item.getUnit()))
+		return repository.findAll().stream()
+				.filter(p -> com.mealton.util.TextMatch.sameName(p.getName(), item.getName())
+						&& p.getUnit().equalsIgnoreCase(item.getUnit()))
 				.findFirst();
 	}
 

@@ -227,7 +227,36 @@ public class ClaudeAdapter implements LLMClient {
 
 	// ---------------------------------------------------------------- sending
 
+	/**
+	 * Prints which feature is calling Claude and the start of the prompt (never the
+	 * key).
+	 */
+	private void logCall(ObjectNode body) {
+		try {
+			StringBuilder who = new StringBuilder();
+			for (StackTraceElement frame : new Throwable().getStackTrace()) {
+				String cls = frame.getClassName();
+				if (cls.startsWith("com.mealton") && !cls.endsWith("ClaudeAdapter") && who.length() < 160) {
+					who.append(cls.substring(cls.lastIndexOf('.') + 1)).append('.').append(frame.getMethodName())
+							.append(" < ");
+				}
+			}
+			String prompt = "";
+			JsonNode messages = body.path("messages");
+			if (messages.isArray() && messages.size() > 0) {
+				JsonNode content = messages.get(messages.size() - 1).path("content");
+				prompt = content.isArray() ? content.toString() : content.asText();
+			}
+			prompt = prompt.replaceAll("\\s+", " ");
+			System.out.println("[Mealton] Claude call from " + who + "| prompt: "
+					+ (prompt.length() > 200 ? prompt.substring(0, 200) + "..." : prompt));
+		} catch (RuntimeException ignored) {
+			// logging must never break a call
+		}
+	}
+
 	private JsonNode send(ObjectNode body) {
+		logCall(body);
 		try {
 			HttpRequest request = HttpRequest.newBuilder(URI.create(url)).timeout(Duration.ofSeconds(120))
 					.header("content-type", "application/json").header("x-api-key", apiKey)
@@ -238,7 +267,10 @@ public class ClaudeAdapter implements LLMClient {
 				throw new IllegalStateException(
 						"Claude API error " + response.statusCode() + ": " + errorMessage(response.body()));
 			}
-			return json.readTree(response.body());
+			JsonNode tree = json.readTree(response.body());
+			System.out.println("[Mealton] Claude replied: " + tree.path("usage").path("input_tokens").asLong(0)
+					+ " input / " + tree.path("usage").path("output_tokens").asLong(0) + " output tokens");
+			return tree;
 		} catch (IOException e) {
 			throw new IllegalStateException("Could not reach the Claude API: " + e.getMessage());
 		} catch (InterruptedException e) {

@@ -91,6 +91,7 @@ public class MealtonApp extends Application {
 		if (!session.warnings().isEmpty()) {
 			new Alert(Alert.AlertType.WARNING, String.join("\n", session.warnings())).showAndWait();
 		}
+		session.facade().holdStarterRecipes(); // recipes from the internet load first
 		stage.setTitle("Mealton - " + username);
 		window = new MainWindow(session.facade(), username, this::saveNow, this::logOut, this::deleteAccount);
 		stage.setScene(styledScene(window));

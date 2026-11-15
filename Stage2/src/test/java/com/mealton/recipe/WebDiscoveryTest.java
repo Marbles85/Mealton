@@ -1,8 +1,6 @@
 package com.mealton.recipe;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
-import static org.junit.jupiter.api.Assertions.assertFalse;
-import static org.junit.jupiter.api.Assertions.assertNotNull;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 
 import java.io.IOException;
@@ -48,6 +46,7 @@ class WebDiscoveryTest {
 	@BeforeEach
 	void setUp() {
 		facade = new MealtonFacade();
+		facade.setSpoonacularKey(""); // never use a real key in a test
 		StarterRecipes.loadInto(facade);
 		claude = new SearchingClaude();
 		facade.enableAgent(claude);
@@ -70,31 +69,40 @@ class WebDiscoveryTest {
 		});
 	}
 
-	@Test
-	void recipesComeFromWebPagesWithTheirLinkAndRating() {
-		List<Recipe> got = facade.generateRecipeDrafts(40, "", facade.recipeTitles());
-		assertEquals(40, got.size());
-		Recipe r = got.get(0);
-		assertTrue(r.getSourceUrl().startsWith("https://example.com/"));
-		assertEquals(4.6, r.getPublicRating(), 1e-9);
-		assertEquals(321, r.getPublicRatingCount());
-		assertFalse(r.getSteps().isEmpty());
-		long distinct = got.stream().map(Recipe::getTitle).distinct().count();
-		assertEquals(40L, distinct, "no repeated titles");
-		assertTrue(claude.searches >= 3);
+	private static RecipeSource source(String name, IOException failure) {
+		return new RecipeSource() {
+			@Override
+			public String name() {
+				return name;
+			}
+
+			@Override
+			public List<RecipeImporter.Imported> find(int count, String hint, java.util.Set<String> knownTitles,
+					java.util.function.IntConsumer progress) throws IOException {
+				if (failure != null) {
+					throw failure;
+				}
+				return List.of();
+			}
+		};
 	}
 
 	@Test
-	void theTabIsFilledUpToAboutAHundredRecipes() {
-		int want = facade.discoveryCount(100);
-		assertTrue(want >= 30);
-		List<Recipe> got = facade.generateRecipeDrafts(want, "", facade.recipeTitles());
-		assertNotNull(got);
-		int before = facade.getRecipes().size();
-		int added = facade.swapInDiscoveredRecipes(got);
-		assertEquals(got.size(), added);
-		assertTrue(facade.getRecipes().size() >= before + added - 1);
-		assertTrue(facade.getRecipes().size() >= 99 || got.size() < want, "about 100 recipes when the web gave enough");
+	void searchingNeverFallsBackToClaudeWebSearch() {
+		facade.setRecipeSource(source("TheMealDB", null));
+		IllegalStateException e = org.junit.jupiter.api.Assertions.assertThrows(IllegalStateException.class,
+				() -> facade.generateRecipeDrafts(40, "burgers", facade.recipeTitles()));
+		assertTrue(e.getMessage().contains("not have any new recipes"), e.getMessage());
+		assertEquals(0, claude.searches, "no Claude web search, so no tokens are spent");
+	}
+
+	@Test
+	void aUsedUpDailyLimitIsReportedAndClaudeStaysOff() {
+		facade.setRecipeSource(source("Spoonacular", new IOException("the site answered with error 402")));
+		IllegalStateException e = org.junit.jupiter.api.Assertions.assertThrows(IllegalStateException.class,
+				() -> facade.generateRecipeDrafts(40, "", facade.recipeTitles()));
+		assertTrue(e.getMessage().contains("free daily limit is used up"), e.getMessage());
+		assertEquals(0, claude.searches);
 	}
 
 	@Test

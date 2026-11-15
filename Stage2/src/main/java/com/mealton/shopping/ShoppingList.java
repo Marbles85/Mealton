@@ -75,9 +75,8 @@ public class ShoppingList {
 	 * duplicates.
 	 */
 	public Optional<ShoppingItem> findPendingMatch(String name, String unit) {
-		return items.stream()
-				.filter(i -> !i.isChecked() && i.getName().equalsIgnoreCase(name) && i.getUnit().equalsIgnoreCase(unit))
-				.findFirst();
+		return items.stream().filter(i -> !i.isChecked() && com.mealton.util.TextMatch.sameName(i.getName(), name)
+				&& i.getUnit().equalsIgnoreCase(unit)).findFirst();
 	}
 
 	public List<ShoppingItem> checkedItems() {

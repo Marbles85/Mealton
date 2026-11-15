@@ -148,7 +148,7 @@
 .rc-need-note { -fx-font-size: 12px; -fx-text-fill: #8a4208; }
 
 /* v5: plan chip, source row */
-.rc-plan-off { -fx-background-color: #e6eee2; -fx-background-radius: 18; -fx-border-color: #4f6b52; -fx-border-width: 2; -fx-border-radius: 18; -fx-text-fill: #2f4a34; -fx-font-size: 13px; -fx-font-weight: bold; -fx-padding: 6 14 6 14; -fx-cursor: hand; }
+.rc-plan-off { -fx-background-color: white; -fx-background-radius: 18; -fx-border-color: #4f6b52; -fx-border-width: 2; -fx-border-radius: 18; -fx-text-fill: #2f4a34; -fx-font-size: 13px; -fx-font-weight: bold; -fx-padding: 6 14 6 14; -fx-cursor: hand; }
 .rc-plan-on { -fx-background-color: #4f6b52; -fx-background-radius: 18; -fx-border-color: #4f6b52; -fx-border-width: 2; -fx-border-radius: 18; -fx-text-fill: white; -fx-font-size: 13px; -fx-font-weight: bold; -fx-padding: 6 14 6 14; -fx-cursor: hand; }
 .rc-divider { -fx-background-color: #dce3d9; }
 .rc-plan-chip { -fx-background-color: #e6eee2; -fx-text-fill: #2f4a34; -fx-background-radius: 6; -fx-padding: 3 8 3 8; -fx-font-size: 12px; -fx-font-weight: bold; }

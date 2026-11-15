@@ -26,7 +26,8 @@ public class HttpFetcher implements RecipeImporter.Fetcher {
 
 	@Override
 	public String page(String url) throws IOException {
-		HttpResponse<InputStream> response = send(url, "text/html,application/xhtml+xml");
+		HttpResponse<InputStream> response = send(url,
+				"text/html,application/xhtml+xml,application/json;q=0.9,*/*;q=0.8");
 		try (InputStream in = response.body()) {
 			return new String(in.readNBytes(MAX_PAGE), StandardCharsets.UTF_8);
 		}

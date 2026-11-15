@@ -49,8 +49,41 @@ public class RecipeBook {
 				.orElseThrow(() -> new IllegalArgumentException("There is no saved recipe with id " + id + "."));
 	}
 
-	/** All saved recipes, in the order they were saved. */
+	private volatile long holdUntil; // 0 = the built-in recipes are shown
+
+	/**
+	 * Hides the built-in starter recipes until {@link #releaseStarterRecipes()} is
+	 * called or {@code millis} have passed (whichever comes first), so recipes
+	 * found online can load first.
+	 */
+	public void holdStarterRecipes(long millis) {
+		holdUntil = System.currentTimeMillis() + millis;
+	}
+
+	/** Shows the built-in starter recipes (no more waiting). */
+	public void releaseStarterRecipes() {
+		holdUntil = 0;
+	}
+
+	public boolean isHoldingStarters() {
+		long until = holdUntil;
+		return until != 0 && System.currentTimeMillis() < until;
+	}
+
+	/**
+	 * All saved recipes, in the order they were saved (the starter recipes are left
+	 * out while they are held back).
+	 */
 	public List<Recipe> getAll() {
+		List<Recipe> all = repository.findAll();
+		return isHoldingStarters() ? all.stream().filter(r -> !(r.isLibrary() && !r.isDiscovered())).toList() : all;
+	}
+
+	/**
+	 * Every recipe including held-back starters; used when saving the user's data
+	 * so nothing is lost.
+	 */
+	public List<Recipe> getEverything() {
 		return repository.findAll();
 	}
 
@@ -58,7 +91,7 @@ public class RecipeBook {
 	 * "My Recipes": the recipes the user made plus the library recipes they saved.
 	 */
 	public List<Recipe> getMyRecipes() {
-		return repository.findAll().stream().filter(Recipe::isInMyRecipes).toList();
+		return getAll().stream().filter(Recipe::isInMyRecipes).toList();
 	}
 
 	/**
@@ -81,8 +114,9 @@ public class RecipeBook {
 	 */
 	public Recipe update(long id, Recipe edited) {
 		Recipe existing = get(id);
-		if (existing.isLibrary()) {
-			throw new IllegalArgumentException("Ready-made recipes cannot be edited. Write your own recipe instead.");
+		if (existing.isLibrary() && !existing.isInMyRecipes()) {
+			throw new IllegalArgumentException(
+					"Ready-made recipes cannot be edited until you save them with the heart. Write your own recipe instead.");
 		}
 		repository.findByTitle(edited.getTitle()).ifPresent(other -> {
 			if (other.getId() != id) {
@@ -90,6 +124,9 @@ public class RecipeBook {
 			}
 		});
 		existing.edit(edited);
+		if (existing.isLibrary()) {
+			existing.becomeOwn(); // a saved recipe you edited is now yours, wherever it came from
+		}
 		return repository.save(existing);
 	}
 

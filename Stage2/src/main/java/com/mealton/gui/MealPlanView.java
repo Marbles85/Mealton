@@ -34,7 +34,6 @@ import javafx.scene.control.ListCell;
 import javafx.scene.control.ListView;
 import javafx.scene.control.ScrollPane;
 import javafx.scene.control.TextField;
-import javafx.scene.image.Image;
 import javafx.scene.image.ImageView;
 import javafx.scene.input.ClipboardContent;
 import javafx.scene.input.DragEvent;
@@ -612,15 +611,9 @@ public class MealPlanView extends StackPane {
 		box.setClip(clip);
 		Optional<Path> file = facade.getRecipePhoto(r.getId());
 		if (file.isPresent()) {
-			try {
-				Image img = new Image(file.get().toUri().toString(), w * 2, h * 2, false, true);
-				ImageView v = new ImageView(img);
-				v.setFitWidth(w);
-				v.setFitHeight(h);
-				v.setPreserveRatio(false);
+			ImageView v = PhotoFit.cover(file.get(), w, h);
+			if (v != null) {
 				box.getChildren().add(v);
-			} catch (RuntimeException ignored) {
-				// no picture: the plain box is fine
 			}
 		}
 		return box;
@@ -1813,17 +1806,12 @@ public class MealPlanView extends StackPane {
 		clip.setArcHeight(28);
 		photo.setClip(clip);
 		if (file.isPresent()) {
-			try {
-				ImageView v = new ImageView(new Image(file.get().toUri().toString(), 808, ph * 2, false, true));
-				v.setFitWidth(404);
-				v.setFitHeight(ph);
-				v.setPreserveRatio(false);
+			ImageView v = PhotoFit.cover(file.get(), 404, ph);
+			if (v != null) {
 				if (past) {
 					v.setOpacity(0.7);
 				}
 				photo.getChildren().add(v);
-			} catch (RuntimeException ignored) {
-				// no picture: the plain box is fine
 			}
 		}
 		body.getChildren().add(photo);

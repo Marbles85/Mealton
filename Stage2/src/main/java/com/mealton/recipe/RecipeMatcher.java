@@ -38,6 +38,10 @@ public class RecipeMatcher {
 		int expiringUsed = 0;
 
 		for (RecipeIngredient needed : recipe.getIngredients()) {
+			if (isPlainWater(needed.name())) {
+				available.add(needed); // everyone has water, so it is never missing
+				continue;
+			}
 			double have = 0;
 			boolean comparable = true;
 			boolean found = false;
@@ -70,6 +74,17 @@ public class RecipeMatcher {
 		return new RecipeMatch(recipe, available, missing, expiringUsed);
 	}
 
+	private static final java.util.regex.Pattern PLAIN_WATER = java.util.regex.Pattern
+			.compile("(?:(?:cold|cool|warm|hot|boiling|lukewarm|ice|iced|tap|filtered|room temperature)\\s+)*water");
+
+	/**
+	 * True for plain water ("water", "warm water"), not "coconut water" or "rose
+	 * water".
+	 */
+	static boolean isPlainWater(String name) {
+		return PLAIN_WATER.matcher(name.trim().toLowerCase(Locale.ROOT)).matches();
+	}
+
 	/**
 	 * The pantry amount expressed in the recipe's unit, or null if the two units
 	 * cannot be compared.
@@ -90,7 +105,7 @@ public class RecipeMatcher {
 	}
 
 	private static boolean sameIngredient(String a, String b) {
-		return normalize(a).equals(normalize(b));
+		return com.mealton.util.TextMatch.sameName(a, b);
 	}
 
 	/**

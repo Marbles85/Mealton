@@ -321,15 +321,36 @@ class RecipeImportTest {
 		assertTrue(com.mealton.recipe.RecipeDiscovery.parse("nonsense", null).isEmpty());
 	}
 
-	@Test
-	void refreshSwapsGeneratedRecipesButKeepsSavedOnes() {
+	/**
+	 * A facade whose recipe services find nothing, so only Claude (the mock) can
+	 * write recipes; no internet is used.
+	 */
+	private static MealtonFacade withoutServices() {
 		MealtonFacade facade = new MealtonFacade();
+		facade.setRecipeSource(new com.mealton.recipe.RecipeSource() {
+			@Override
+			public String name() {
+				return "Test service";
+			}
+
+			@Override
+			public java.util.List<RecipeImporter.Imported> find(int count, String hint, java.util.Set<String> known,
+					java.util.function.IntConsumer progress) {
+				return java.util.List.of();
+			}
+		});
+		return facade;
+	}
+
+	@Test
+	void refreshAddsGeneratedRecipesAndKeepsSavedOnes() {
+		MealtonFacade facade = withoutServices();
 		assertFalse(facade.canGenerateRecipes());
 		assertThrows(IllegalStateException.class, () -> facade.refreshDiscoveredRecipes(2, ""));
 		facade.enableAgent(new MockLLMClient().thenSay(batch("Rice Bowl", "Lemon Rice"))
 				.thenSay(batch("Herb Rice", "Pea Rice")).thenSay(batch("Plain Rice")));
 		int base = facade.getRecipes().size();
-		assertEquals(2, facade.refreshDiscoveredRecipes(2, "rice"));
+		assertEquals(2, facade.refreshDiscoveredRecipes(2, ""));
 		assertEquals(base + 2, facade.getRecipes().size());
 		Recipe keep = facade.getRecipes().stream().filter(r -> r.getTitle().equals("Rice Bowl")).findFirst()
 				.orElseThrow();
@@ -337,8 +358,8 @@ class RecipeImportTest {
 		assertEquals(java.util.List.of("asian", "quick"), facade.aiFilterSuggestions(5));
 		facade.saveToMyRecipes(keep.getId());
 		assertEquals(2, facade.refreshDiscoveredRecipes(2, ""));
-		assertEquals(base + 3, facade.getRecipes().size()); // Rice Bowl kept, Lemon Rice swapped for two new ones
-		assertTrue(facade.getRecipes().stream().noneMatch(r -> r.getTitle().equals("Lemon Rice")));
+		assertEquals(base + 4, facade.getRecipes().size()); // each Refresh adds to what is there
+		assertTrue(facade.getRecipes().stream().anyMatch(r -> r.getTitle().equals("Lemon Rice")));
 
 		// a kept generated recipe survives saving to disk as a normal recipe of the
 		// user's
@@ -351,7 +372,7 @@ class RecipeImportTest {
 
 	@Test
 	void nothingUsableFromTheModelKeepsWhatYouHave() {
-		MealtonFacade facade = new MealtonFacade();
+		MealtonFacade facade = withoutServices();
 		facade.enableAgent(new MockLLMClient().thenSay("sorry"));
 		int base = facade.getRecipes().size();
 		assertEquals(0, facade.refreshDiscoveredRecipes(5, ""));

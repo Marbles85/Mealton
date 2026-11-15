@@ -207,7 +207,15 @@ public final class RangePlanner {
 			}
 			draft.meals.put(d, day);
 		}
-		describe(draft, used, allowed.size(), pastDays(o.start(), o.end(), today));
+		int cuisineMatches = 0;
+		if (!o.cuisines().isEmpty()) {
+			for (Recipe r : allowed) {
+				if (cuisineStrength(r, o.cuisines()) > 0) {
+					cuisineMatches++;
+				}
+			}
+		}
+		describe(draft, used, allowed.size(), cuisineMatches, pastDays(o.start(), o.end(), today));
 		return draft;
 	}
 
@@ -451,6 +459,17 @@ public final class RangePlanner {
 		if (!fresh.isEmpty()) {
 			pool = fresh;
 		}
+		if (!o.cuisines().isEmpty()) {
+			List<Recipe> matching = new ArrayList<>();
+			for (Recipe r : pool) {
+				if (cuisineStrength(r, o.cuisines()) > 0) {
+					matching.add(r);
+				}
+			}
+			if (matching.size() >= 3) {
+				pool = matching; // enough that fit: only choose from those
+			}
+		}
 		int target = o.calories() != null ? o.calories() : profile.get().calorieGoal();
 		double share = breakfast ? 0.25 : tag.equals("Lunch") ? 0.35 : 0.40;
 		List<String> expiring = new ArrayList<>();
@@ -467,7 +486,8 @@ public final class RangePlanner {
 				s += 60;
 			}
 			if (!o.cuisines().isEmpty()) {
-				s += matchesCuisine(r, o.cuisines()) ? -40 : 25;
+				int strength = cuisineStrength(r, o.cuisines());
+				s += strength == 2 ? -150 : strength == 1 ? -100 : 60;
 			}
 			s -= 30.0 * expiringHits(r, expiring);
 			RecipeNutrition n = RecipeNutrition.of(r);
@@ -500,35 +520,84 @@ public final class RangePlanner {
 		return hits;
 	}
 
-	private static final Map<String, List<String>> CUISINE_WORDS = Map.of("mediterranean",
-			List.of("feta", "olive", "hummus", "greek", "tzatziki", "couscous", "pita", "fattoush", "shakshuka"),
-			"asian", List.of("soy", "tofu", "ginger", "noodle", "stir-fry", "teriyaki", "sesame", "rice", "miso"),
-			"mexican", List.of("taco", "tortilla", "salsa", "burrito", "cumin", "chili", "enchilada", "quesadilla"),
-			"italian", List.of("pasta", "parmesan", "basil", "spaghetti", "pizza", "lasagna", "risotto"),
-			"middle eastern", List.of("hummus", "falafel", "tahini", "sumac", "shakshuka", "pita", "fattoush"),
-			"comfort", List.of("soup", "casserole", "mac", "stew", "chili", "pie", "pancake", "roast"));
+	private static final Map<String, List<String>> CUISINE_WORDS = Map.ofEntries(
+			Map.entry("mediterranean",
+					List.of("feta", "olive", "hummus", "greek", "tzatziki", "couscous", "pita", "fattoush", "shakshuka",
+							"tabbouleh", "moussaka", "gyro", "souvlaki")),
+			Map.entry("asian",
+					List.of("soy", "tofu", "ginger", "noodle", "stir-fry", "teriyaki", "sesame", "miso", "ramen", "pho",
+							"curry", "dumpling", "sushi", "kimchi", "adobo", "lumpia", "pancit")),
+			Map.entry("mexican",
+					List.of("taco", "tortilla", "salsa", "burrito", "cumin", "enchilada", "quesadilla", "fajita",
+							"guacamole", "tamale", "chipotle")),
+			Map.entry("italian",
+					List.of("pasta", "parmesan", "basil", "spaghetti", "pizza", "lasagna", "risotto", "gnocchi",
+							"bolognese", "carbonara", "pesto")),
+			Map.entry("middle eastern",
+					List.of("hummus", "falafel", "tahini", "sumac", "shakshuka", "pita", "fattoush", "shawarma",
+							"kebab")),
+			Map.entry("filipino",
+					List.of("filipino", "philippine", "adobo", "sinigang", "lumpia", "pancit", "bistek", "kare kare",
+							"lechon", "tocino", "longganisa", "tapsilog", "sisig", "tinola", "afritada", "caldereta",
+							"menudo", "arroz caldo", "champorado", "pandesal", "bibingka", "turon", "halo halo",
+							"calamansi", "bagoong", "ube")),
+			Map.entry("comfort",
+					List.of("comfort", "soup", "casserole", "mac and cheese", "macaroni", "stew", "chili", "pie",
+							"pot pie", "pancake", "roast", "mashed", "meatloaf", "lasagna", "chowder", "gratin",
+							"dumpling", "fried chicken", "grilled cheese", "pudding", "cobbler", "crumble", "gravy",
+							"shepherd", "biscuit", "congee", "pot roast", "bake")));
 
-	static boolean matchesCuisine(Recipe r, Set<String> cuisines) {
+	/**
+	 * The words a recipe can be matched on: title, tags (area, category, ...) and
+	 * ingredient names.
+	 */
+	private static String searchText(Recipe r) {
 		StringBuilder text = new StringBuilder(r.getTitle().toLowerCase(Locale.ROOT));
+		for (String tag : r.getAiTags()) {
+			text.append(' ').append(tag);
+		}
 		for (RecipeIngredient i : r.getIngredients()) {
 			text.append(' ').append(i.name().toLowerCase(Locale.ROOT));
 		}
-		String all = text.toString();
-		for (String c : cuisines) {
-			String key = c.toLowerCase(Locale.ROOT);
-			if (all.contains(key)) {
-				return true;
-			}
-			for (String w : CUISINE_WORDS.getOrDefault(key, List.of())) {
-				if (all.contains(w)) {
-					return true;
-				}
-			}
-		}
-		return false;
+		return text.toString();
 	}
 
-	private void describe(Draft draft, UserProfile used, int candidates, int pastDays) {
+	/**
+	 * 2 = the recipe says it (title or tag names the cuisine), 1 = typical words, 0
+	 * = no match.
+	 */
+	static int cuisineStrength(Recipe r, Set<String> cuisines) {
+		String all = searchText(r);
+		String named = r.getTitle().toLowerCase(Locale.ROOT) + " " + String.join(" ", r.getAiTags());
+		int best = 0;
+		for (String c : cuisines) {
+			String key = c.toLowerCase(Locale.ROOT).trim();
+			if (key.isEmpty()) {
+				continue;
+			}
+			if (com.mealton.util.TextMatch.containsAll(named, key)) {
+				return 2;
+			}
+			if (best < 1) {
+				for (String w : CUISINE_WORDS.getOrDefault(key, List.of())) {
+					if (com.mealton.util.TextMatch.containsAll(all, w)) {
+						best = 1;
+						break;
+					}
+				}
+			}
+			if (best < 1 && com.mealton.util.TextMatch.containsAll(all, key)) {
+				best = 1;
+			}
+		}
+		return best;
+	}
+
+	static boolean matchesCuisine(Recipe r, Set<String> cuisines) {
+		return cuisineStrength(r, cuisines) > 0;
+	}
+
+	private void describe(Draft draft, UserProfile used, int candidates, int cuisineMatches, int pastDays) {
 		Options o = draft.options();
 		int target = o.calories() != null ? o.calories() : used.calorieGoal();
 		String allergies = used.allergies().isEmpty() ? "no allergies"
@@ -544,11 +613,11 @@ public final class RangePlanner {
 				pantry.getItems().size() + " items"
 						+ (names.isEmpty() ? "" : " · " + String.join(", ", names) + " expire within 3 days"),
 				"pantry"));
-		draft.steps.add(new Step(true, "Searched recipes",
-				candidates + " candidates"
-						+ (o.cuisines().isEmpty() ? "" : " leaning toward " + String.join(", ", o.cuisines()))
-						+ (o.avoidRecent() ? " · avoided last week’s meals" : "")
-						+ (pastDays > 0 ? " · skipped " + pastDays + " past day" + (pastDays == 1 ? "" : "s") : ""),
+		draft.steps.add(new Step(true, "Searched recipes", candidates + " candidates" + (o.cuisines().isEmpty() ? ""
+				: " · " + cuisineMatches + " fit " + String.join(", ", o.cuisines())
+						+ (cuisineMatches < 6 ? " (few: use Refresh in Recipes with those words to add more)" : ""))
+				+ (o.avoidRecent() ? " · avoided last week’s meals" : "")
+				+ (pastDays > 0 ? " · skipped " + pastDays + " past day" + (pastDays == 1 ? "" : "s") : ""),
 				"recipes"));
 		refreshNumbers(draft);
 		draft.steps.add(new Step(true, "Checked nutrition",

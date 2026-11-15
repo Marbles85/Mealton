@@ -96,6 +96,7 @@ public class RecipeBrowserView extends BorderPane {
 	private final Set<RecipeTag> wantedTags = EnumSet.noneOf(RecipeTag.class);
 	private final List<String> customFilters = new ArrayList<>();
 	private boolean suggestedFilters = true;
+	private boolean generatedOnly = false; // only recipes made by Mealton (starter recipes and ones Claude wrote)
 	private boolean planOnly = false; // only recipes on this week's meal calendar
 	private Map<Long, String> planned = new HashMap<>(); // recipe id -> "Mon dinner, Tue lunch" for this week
 	private String filterDraft = "";
@@ -137,6 +138,13 @@ public class RecipeBrowserView extends BorderPane {
 	private String listSignature = ""; // changes when the tab, search or filters change (page goes back to 1)
 	private boolean generating = false; // Claude is writing new recipes for All recipes
 	private boolean triedAutoGenerate = false;
+	/**
+	 * Searches already sent to the recipe services, so the same words are not
+	 * looked up twice.
+	 */
+	private final java.util.Set<String> searchedOnline = new java.util.HashSet<>();
+	private final javafx.animation.PauseTransition searchPause = new javafx.animation.PauseTransition(
+			javafx.util.Duration.millis(900));
 	private boolean importing = false;
 	private boolean estimating = false;
 	private Runnable undoAction = null; // what the underlined Undo link next to the message does
@@ -168,7 +176,12 @@ public class RecipeBrowserView extends BorderPane {
 		search.getStyleClass().add("rc-search");
 		search.setPrefWidth(240);
 		search.setPrefHeight(44);
-		search.textProperty().addListener((obs, o, n) -> showList());
+		search.textProperty().addListener((obs, o, n) -> {
+			showList();
+			searchPause.playFromStart(); // when you stop typing, the recipe services are searched too
+		});
+		searchPause.setOnFinished(e -> searchOnline(false));
+		search.setOnAction(e -> searchOnline(true)); // Enter always searches the services
 		rank.getItems().addAll("Use up expiring food first", "Best pantry match", "Best macro fit", "Highest rated");
 		rank.setPrefHeight(44);
 		rank.setValue("Use up expiring food first");
@@ -325,7 +338,7 @@ public class RecipeBrowserView extends BorderPane {
 		}
 		}
 		List<RecipeMatch> result = new ArrayList<>(matches);
-		String q = search.getText() == null ? "" : search.getText().trim().toLowerCase(Locale.ROOT);
+		String q = norm(search.getText()).toLowerCase(Locale.ROOT);
 		if (!q.isEmpty()) {
 			result.removeIf(m -> !textMatches(m, q));
 		}
@@ -334,6 +347,27 @@ public class RecipeBrowserView extends BorderPane {
 		}
 		if (planOnly) {
 			result.removeIf(m -> !planned.containsKey(m.recipe().getId()));
+		}
+		if (generatedOnly) {
+			// made by Mealton: the starter recipes, ones Claude wrote, and ones Mealton
+			// edited or substituted
+			result.removeIf(m -> !m.recipe().isMadeByMealton());
+		}
+		if (which == Tab.ALL) {
+			// recipes found online come first, the built-in starter recipes after them;
+			// each group is shuffled in a steady order so the page does not look sorted
+			// the newest recipes (the ones from the last Refresh) lead, so they fill the
+			// first page
+			result.sort(Comparator.comparingInt((RecipeMatch m) -> m.recipe().isDiscovered() ? 0 : 1)
+					.thenComparingLong((RecipeMatch m) -> m.recipe().isDiscovered() ? -m.recipe().getId() : 0)
+					.thenComparingInt((RecipeMatch m) -> blendKey(m.recipe())));
+		} else {
+			// same rule on the other tabs: online recipes first, built-in ones after; the
+			// order
+			// inside each group (best pantry match, expiring first...) is kept
+			// (new ones lead, newest first, so a Refresh fills the first page here too)
+			result.sort(Comparator.comparingInt((RecipeMatch m) -> m.recipe().isDiscovered() ? 0 : 1)
+					.thenComparingLong((RecipeMatch m) -> m.recipe().isDiscovered() ? -m.recipe().getId() : 0));
 		}
 		if ("Highest rated".equals(rank.getValue())) {
 			// your own stars first; recipes you have not rated use the public rating from
@@ -360,26 +394,106 @@ public class RecipeBrowserView extends BorderPane {
 				: text;
 	}
 
-	private static boolean textMatches(RecipeMatch m, String q) {
-		if (m.recipe().getTitle().toLowerCase(Locale.ROOT).contains(q)) {
-			return true;
+	/**
+	 * Trims and collapses spaces; null or blank becomes "" (no search). Capitals
+	 * are ignored when matching.
+	 */
+	private static String norm(String text) {
+		return text == null ? "" : text.trim().replaceAll("\\s+", " ");
+	}
+
+	/**
+	 * Only the recipes that match the current search and filters (so Refresh never
+	 * adds ones you would not see).
+	 */
+	private List<Recipe> matchingCurrentFilters(List<Recipe> recipes) {
+		List<RecipeMatch> matches = new ArrayList<>();
+		for (Recipe r : recipes) {
+			matches.add(new RecipeMatch(r, List.of(), List.of(), 0));
 		}
+		matches = new ArrayList<>(RecipeTag.filter(matches, wantedTags));
+		String q = norm(search.getText()).toLowerCase(Locale.ROOT);
+		if (!q.isEmpty()) {
+			matches.removeIf(m -> !textMatches(m, q));
+		}
+		for (String f : customFilters) {
+			matches.removeIf(m -> !textMatches(m, norm(f).toLowerCase(Locale.ROOT)));
+		}
+		List<Recipe> out = new ArrayList<>();
+		matches.forEach(m -> out.add(m.recipe()));
+		return out;
+	}
+
+	/**
+	 * A search or filter matches when every word of it appears somewhere in the
+	 * recipe's name, ingredients or tags ("gluten free" also finds "Gluten-Free
+	 * Brownies" tagged "dessert").
+	 */
+	private static boolean textMatches(RecipeMatch m, String q) {
+		StringBuilder all = new StringBuilder(m.recipe().getTitle());
 		for (RecipeIngredient i : m.recipe().getIngredients()) {
-			if (i.name().toLowerCase(Locale.ROOT).contains(q)) {
-				return true;
+			all.append(' ').append(i.name());
+		}
+		for (RecipeTag t : RecipeTag.tagsOf(m)) {
+			all.append(' ').append(t.label());
+		}
+		for (String t : m.recipe().getAiTags()) {
+			all.append(' ').append(t);
+		}
+		// capitals, spaces, plurals ("egg"/"eggs") and small typos ("chiken") are all
+		// forgiven
+		return com.mealton.util.TextMatch.containsAll(all.toString(), q);
+	}
+
+	private static final List<String[]> MAIN_FOODS = List.of(new String[] { "chicken", "chicken" },
+			new String[] { "beef", "beef" }, new String[] { "pork", "pork" }, new String[] { "bacon", "pork" },
+			new String[] { "salmon", "seafood" }, new String[] { "tuna", "seafood" },
+			new String[] { "shrimp", "seafood" }, new String[] { "prawn", "seafood" },
+			new String[] { "fish", "seafood" }, new String[] { "pasta", "pasta" },
+			new String[] { "spaghetti", "pasta" }, new String[] { "noodle", "noodles" },
+			new String[] { "rice", "rice" }, new String[] { "egg", "eggs" }, new String[] { "lentil", "legumes" },
+			new String[] { "chickpea", "legumes" }, new String[] { "bean", "legumes" },
+			new String[] { "cheese", "cheesy" }, new String[] { "chocolate", "chocolate" });
+
+	/**
+	 * The tags Mealton puts at the bottom of a recipe card: what kind of dish it is
+	 * (cuisine, meal), the main food, diet and nutrition tags, and how quick it is.
+	 * At most five; click one to filter.
+	 */
+	private static List<String> autoTags(RecipeMatch m) {
+		Recipe r = m.recipe();
+		List<String> out = new ArrayList<>();
+		for (String t : r.getAiTags()) {
+			if (!t.equals(Recipe.MEALTON_TAG)) {
+				addTag(out, t);
 			}
 		}
 		for (RecipeTag t : RecipeTag.tagsOf(m)) {
-			if (t.label().toLowerCase(Locale.ROOT).contains(q)) {
-				return true;
+			if (t != RecipeTag.FITS_PROFILE && t != RecipeTag.USES_EXPIRING) {
+				addTag(out, t.label());
 			}
 		}
-		for (String t : m.recipe().getAiTags()) {
-			if (t.contains(q)) {
-				return true;
+		int total = r.getTotalMinutes();
+		if (total > 0 && total <= 30) {
+			addTag(out, "quick");
+		}
+		String all = r.getTitle().toLowerCase(Locale.ROOT);
+		for (RecipeIngredient i : r.getIngredients()) {
+			all += " " + i.name().toLowerCase(Locale.ROOT);
+		}
+		for (String[] food : MAIN_FOODS) {
+			if (all.contains(food[0])) {
+				addTag(out, food[1]);
 			}
 		}
-		return false;
+		return out.size() > 5 ? out.subList(0, 5) : out;
+	}
+
+	private static void addTag(List<String> tags, String tag) {
+		String word = tag.trim().replace('-', ' ').toLowerCase(Locale.ROOT);
+		if (!word.isEmpty() && tags.stream().noneMatch(t -> com.mealton.util.TextMatch.sameName(t, word))) {
+			tags.add(word);
+		}
 	}
 
 	private void showList() {
@@ -395,7 +509,7 @@ public class RecipeBrowserView extends BorderPane {
 
 		List<RecipeMatch> shown = tab == Tab.CAN ? can : tab == Tab.ALMOST ? almost : tab == Tab.ALL ? every : mine;
 		String signature = tab + "|" + search.getText() + "|" + wantedTags + "|" + customFilters + "|" + planOnly + "|"
-				+ rank.getValue();
+				+ generatedOnly + "|" + rank.getValue();
 		if (!signature.equals(listSignature)) {
 			listSignature = signature;
 			page = 0;
@@ -428,7 +542,7 @@ public class RecipeBrowserView extends BorderPane {
 		if (!message.isEmpty()) {
 			content.getChildren().add(messageLabel());
 		}
-		if (generating && tab == Tab.ALL) {
+		if (generating && tab != Tab.MINE) {
 			Label busy = new Label("Mealton is finding recipes on the web\u2026 this takes a minute or two.");
 			busyLabel = busy;
 			busy.getStyleClass().add("rc-ok");
@@ -446,9 +560,30 @@ public class RecipeBrowserView extends BorderPane {
 				content.getChildren().add(pager(pageCount, shown.size()));
 			}
 		}
-		Label foot = new Label(tab == Tab.ALL && facade.canGenerateRecipes()
-				? "New recipes on this tab are found on the web by Claude. Press Refresh for a different set. Save the ones you like with the heart."
-				: "Recipes are worked out from your pantry. Add your own photo to your own recipes.");
+		boolean filtered = !norm(search.getText()).isEmpty() || activeFilterCount() > 0;
+		if (!generating && (filtered || tab != Tab.MINE)) {
+			// always at the bottom of Can make now, Almost there and All recipes (and on My
+			// Recipes
+			// when searching), so you can press it again for another new recipe
+			Button write = new Button(shown.isEmpty() ? "\u2726 Generate one with Mealton?"
+					: filtered ? "\u2726 Generate another with Mealton?" : "\u2726 Generate a recipe with Mealton");
+			write.getStyleClass().add("rc-pill-btn");
+			write.setOnAction(e -> writeOne());
+			content.getChildren().add(write);
+		}
+		Label foot = new Label(tab == Tab.ALL && facade.canFindRecipes()
+				? "New recipes on this tab come from recipe services (TheMealDB, plus Spoonacular if you add a key). Press Refresh for a different mix. Save the ones you like with the heart."
+				: (tab == Tab.CAN || tab == Tab.ALMOST) && facade.canFindRecipes()
+						? "Refresh finds new recipes for your search and filters from the recipe services (they are added to All recipes). This tab shows the ones your pantry can cook or nearly cook."
+						: "Recipes are worked out from your pantry. Add your own photo to your own recipes.");
+		if (tab != Tab.MINE) {
+			Label warn = new Label("Some recipes loaded from the web may have come through wrong or glitched. "
+					+ "Check the recipe's link (View original) for the most accurate version.");
+			warn.getStyleClass().add("rc-meta");
+			warn.setWrapText(true);
+			warn.setMinHeight(Region.USE_PREF_SIZE);
+			content.getChildren().add(warn);
+		}
 		foot.getStyleClass().add("rc-meta");
 		foot.setWrapText(true);
 		foot.setMinHeight(Region.USE_PREF_SIZE);
@@ -460,6 +595,27 @@ public class RecipeBrowserView extends BorderPane {
 		sizeCards(grid, Math.max(300, body.getWidth() - 8));
 		present("list" + tab, scroll);
 		maybeAutoGenerate();
+	}
+
+	/**
+	 * The search bar reads from the recipe services (TheMealDB, Spoonacular), never
+	 * from Claude: when you stop typing and fewer than 8 recipes match, or when you
+	 * press Enter, the services are asked for recipes that match your words and
+	 * filters.
+	 */
+	private void searchOnline(boolean force) {
+		String q = norm(search.getText());
+		if (q.isEmpty() || generating || tab == Tab.MINE || !facade.canFindRecipes()) {
+			return;
+		}
+		String key = q.toLowerCase(Locale.ROOT) + "|" + customFilters + "|" + wantedTags;
+		if (!force && (searchedOnline.contains(key) || load(Tab.ALL).size() >= 8)) {
+			return;
+		}
+		searchedOnline.add(key);
+		message = "";
+		page = 0;
+		generateRecipes();
 	}
 
 	/**
@@ -518,11 +674,14 @@ public class RecipeBrowserView extends BorderPane {
 	 * recipes.
 	 */
 	private void maybeAutoGenerate() {
-		if (tab == Tab.ALL && !triedAutoGenerate && !generating && facade.canGenerateRecipes()) {
+		boolean waiting = facade.isHoldingStarterRecipes(); // the built-in recipes wait for the internet ones
+		if ((tab == Tab.ALL || waiting) && !triedAutoGenerate && !generating && facade.canFindRecipes()) {
 			triedAutoGenerate = true;
 			boolean anyGenerated = facade.getRecipes().stream().anyMatch(Recipe::isDiscovered);
 			if (!anyGenerated) {
 				generateRecipes();
+			} else {
+				facade.releaseStarterRecipes();
 			}
 		}
 	}
@@ -536,7 +695,11 @@ public class RecipeBrowserView extends BorderPane {
 			return;
 		}
 		generating = true;
-		List<String> hintParts = new ArrayList<>(customFilters);
+		List<String> hintParts = new ArrayList<>();
+		if (!norm(search.getText()).isEmpty()) {
+			hintParts.add(norm(search.getText()));
+		}
+		hintParts.addAll(customFilters);
 		wantedTags.forEach(t -> hintParts.add(t.label()));
 		String hint = String.join(", ", hintParts);
 		List<String> avoid = facade.recipeTitles();
@@ -555,18 +718,51 @@ public class RecipeBrowserView extends BorderPane {
 		};
 		task.setOnSucceeded(e -> {
 			generating = false;
-			int added = facade.swapInDiscoveredRecipes(task.getValue());
+			facade.releaseStarterRecipes(); // the internet recipes are in: now the built-in ones can load
+			List<Recipe> fits = matchingCurrentFilters(task.getValue()); // never add what the filters would hide
+			java.util.Set<String> newTitles = new java.util.HashSet<>();
+			fits.forEach(r -> newTitles.add(r.getTitle()));
+			int added = facade.swapInDiscoveredRecipes(fits);
 			page = 0;
-			setMessageOnly(
-					added == 0 ? "No new recipes could be read this time, so the current ones stay."
-							: "Found " + added
-									+ " new recipes (with photos, ratings and links where the website had them).",
-					added == 0);
+			long visible = load(tab).stream().filter(m -> newTitles.contains(m.recipe().getTitle())).count();
+			if (added == 0 && !load(tab).isEmpty() && !hint.isBlank()) {
+				// the earlier Refresh already added everything the services have for these
+				// filters
+				setMessageOnly("No more new recipes for \"" + hint + "\": the " + load(tab).size()
+						+ " that match are already in your list. Try other filters for more.", false);
+			} else if (added == 0) {
+				setMessageOnly(hint.isBlank() ? "No new recipes could be found this time, so the current ones stay."
+						: "No new recipes found for \"" + hint
+								+ "\". Try fewer filters, or use Generate one with Mealton.",
+						true);
+			} else if (visible == 0) {
+				setMessageOnly(tab == Tab.CAN || tab == Tab.ALMOST ? "Added " + added
+						+ " new recipes to All recipes, but none fit this tab yet (your pantry or your filters)."
+						: "Added " + added + " recipes, but none of them match your current search and filters. "
+								+ "Press Clear filters to see them.",
+						true);
+			} else {
+				setMessageOnly("Found " + visible
+						+ " new recipes that match (with photos, ratings and links where the website had them).",
+						false);
+			}
 			refresh();
 		});
 		task.setOnFailed(e -> {
 			generating = false;
-			setMessageOnly("Could not generate recipes: " + task.getException().getMessage(), true);
+			facade.releaseStarterRecipes(); // the services had a problem: the built-in recipes load instead
+			Throwable why = task.getException();
+			boolean nothingNew = why instanceof IllegalStateException && why.getMessage() != null
+					&& why.getMessage().contains("not have any new recipes");
+			if (nothingNew && !hint.isBlank() && !load(tab).isEmpty()) {
+				// the earlier Refresh already added everything the services have for these
+				// filters
+				setMessageOnly("No more new recipes for \"" + hint + "\": the " + load(tab).size()
+						+ " that match are already in your list. Try other filters for more.", false);
+			} else {
+				setMessageOnly(why instanceof IllegalStateException ? why.getMessage()
+						: "Could not find recipes: " + why.getMessage(), true);
+			}
 			refresh();
 		});
 		Thread thread = new Thread(task, "recipe-discover");
@@ -575,6 +771,66 @@ public class RecipeBrowserView extends BorderPane {
 		if (openId == null && !creating) {
 			showList();
 		}
+	}
+
+	/**
+	 * Nothing matched: Mealton (Claude) writes a recipe for the search and filters.
+	 */
+	private void writeOne() {
+		if (generating) {
+			return;
+		}
+		if (!facade.canGenerateRecipes()) {
+			setMessageOnly("Mealton needs Claude to write a recipe. Add LLM_API_KEY to your .env and restart.", true);
+			refresh();
+			return;
+		}
+		List<String> words = new ArrayList<>();
+		if (!norm(search.getText()).isEmpty()) {
+			words.add(norm(search.getText()));
+		}
+		words.addAll(customFilters);
+		wantedTags.forEach(t -> words.add(t.label()));
+		String hint = String.join(", ", words);
+		List<String> tags = new ArrayList<>(words);
+		generating = true;
+		Task<List<Recipe>> task = new Task<>() {
+			@Override
+			protected List<Recipe> call() {
+				return facade.writeRecipeDrafts(1, hint);
+			}
+		};
+		task.setOnSucceeded(e -> {
+			generating = false;
+			for (Recipe r : task.getValue()) {
+				List<String> all = new ArrayList<>(tags);
+				all.addAll(r.getAiTags());
+				r.setAiTags(all); // so it matches the filters it was written for
+			}
+			int added = facade.swapInDiscoveredRecipes(task.getValue());
+			if (added > 0) {
+				// recipes Mealton writes are saved to My Recipes automatically
+				for (Recipe r : task.getValue()) {
+					facade.getRecipes().stream().filter(x -> x.getTitle().equals(r.getTitle())).findFirst()
+							.ifPresent(x -> facade.saveToMyRecipes(x.getId()));
+				}
+			}
+			page = 0;
+			setMessageOnly(added == 0 ? "Mealton could not write a new recipe this time."
+					: "Mealton wrote a recipe" + (hint.isBlank() ? "" : " for \"" + hint + "\"")
+							+ " and saved it to My Recipes. It is marked Generated by Mealton.",
+					added == 0);
+			refresh();
+		});
+		task.setOnFailed(e -> {
+			generating = false;
+			setMessageOnly("Could not write a recipe: " + task.getException().getMessage(), true);
+			refresh();
+		});
+		Thread thread = new Thread(task, "recipe-write");
+		thread.setDaemon(true);
+		thread.start();
+		refresh();
 	}
 
 	private static void sizeCards(FlowPane grid, double width) {
@@ -590,12 +846,21 @@ public class RecipeBrowserView extends BorderPane {
 		}
 	}
 
+	/**
+	 * A steady but shuffled order, so the same recipe always lands in the same
+	 * spot.
+	 */
+	private static int blendKey(Recipe r) {
+		int h = r.getTitle().toLowerCase(Locale.ROOT).hashCode() * 0x9E3779B1;
+		return h ^ (h >>> 15);
+	}
+
 	private int activeFilterCount() {
-		return wantedTags.size() + customFilters.size() + (planOnly ? 1 : 0);
+		return wantedTags.size() + customFilters.size() + (planOnly ? 1 : 0) + (generatedOnly ? 1 : 0);
 	}
 
 	private String emptyText() {
-		if (!search.getText().isBlank() || activeFilterCount() > 0) {
+		if (!norm(search.getText()).isEmpty() || activeFilterCount() > 0) {
 			return "No recipes in this tab match your search or filters. Use Clear filters to see more.";
 		}
 		return switch (tab) {
@@ -621,11 +886,11 @@ public class RecipeBrowserView extends BorderPane {
 		reload.setOnAction(e -> {
 			message = "";
 			addedToList.clear();
-			if (tab == Tab.ALL && facade.canGenerateRecipes()) {
+			if (tab != Tab.MINE && facade.canFindRecipes()) {
 				generateRecipes();
 				return;
 			}
-			if (tab == Tab.ALL) {
+			if (tab != Tab.MINE) {
 				setMessageOnly("Claude is off, so All recipes only shows the built-in recipes. "
 						+ "Add an API key to .env to have Claude write new ones.", false);
 			}
@@ -681,6 +946,7 @@ public class RecipeBrowserView extends BorderPane {
 			wantedTags.clear();
 			customFilters.clear();
 			planOnly = false;
+			generatedOnly = false;
 			filterError = "";
 			showList();
 		});
@@ -713,6 +979,15 @@ public class RecipeBrowserView extends BorderPane {
 
 		FlowPane chips = new FlowPane(8, 8);
 		chips.setAlignment(Pos.CENTER_LEFT);
+		{
+			Button gen = new Button("\u2726 Mealton generated"); // on every recipe tab
+			gen.getStyleClass().add(generatedOnly ? "rc-plan-on" : "rc-plan-off");
+			gen.setOnAction(e -> {
+				generatedOnly = !generatedOnly;
+				showList();
+			});
+			chips.getChildren().add(gen);
+		}
 		if (!planned.isEmpty() || planOnly) {
 			Button plan = new Button("Meal plan · " + weekLabel());
 			plan.getStyleClass().add(planOnly ? "rc-plan-on" : "rc-plan-off");
@@ -767,7 +1042,7 @@ public class RecipeBrowserView extends BorderPane {
 		Button add = new Button("+ Add");
 		add.getStyleClass().add("rc-pill-btn");
 		Runnable doAdd = () -> {
-			String f = draft.getText() == null ? "" : draft.getText().trim();
+			String f = norm(draft.getText());
 			if (f.isEmpty()) {
 				filterError = "Type a word to filter by first.";
 			} else if (customFilters.stream().anyMatch(x -> x.equalsIgnoreCase(f))) {
@@ -1061,9 +1336,17 @@ public class RecipeBrowserView extends BorderPane {
 		}
 
 		FlowPane tags = new FlowPane(6, 6);
-		for (RecipeTag t : RecipeTag.tagsOf(m)) {
-			Label tl = new Label(t.label().replace('-', ' '));
+		for (String word : autoTags(m)) {
+			Button tl = new Button(word);
 			tl.getStyleClass().add("rc-tag");
+			tl.setStyle("-fx-cursor: hand; -fx-min-height: 0; -fx-border-width: 0;");
+			tl.setOnAction(e -> {
+				// click a tag to filter by it
+				if (customFilters.stream().noneMatch(f -> com.mealton.util.TextMatch.sameName(f, word))) {
+					customFilters.add(word);
+				}
+				showList();
+			});
 			tags.getChildren().add(tl);
 		}
 		if (!tags.getChildren().isEmpty()) {
@@ -1093,7 +1376,8 @@ public class RecipeBrowserView extends BorderPane {
 			original.getStyleClass().add("rc-link");
 			original.setOnAction(e -> openLink(r.getSourceUrl()));
 			footBox.getChildren().add(original);
-		} else if (!r.isLibrary()) {
+		}
+		if (!r.isLibrary() || r.isInMyRecipes()) { // saved recipes can be edited wherever they came from
 			Button edit = new Button("✎ Edit");
 			edit.getStyleClass().add("rc-link");
 			edit.setOnAction(e -> startEditing(r));
@@ -1222,7 +1506,7 @@ public class RecipeBrowserView extends BorderPane {
 		LeftoverFreshness.Suggestion sug = recipe.suggestedFresh();
 		Label lead = new Label("Leftovers keep");
 		lead.getStyleClass().add("rc-sub");
-		boolean editable = !recipe.isLibrary() || (recipe.isDiscovered() && recipe.isSaved());
+		boolean editable = !recipe.isLibrary() || recipe.isInMyRecipes();
 		if (!editable) {
 			Label est = new Label("about " + sug.days() + " days in the fridge (estimate: " + sug.reason() + ")");
 			est.getStyleClass().add("rc-sub");
@@ -1411,6 +1695,11 @@ public class RecipeBrowserView extends BorderPane {
 				}
 			}));
 			actions.getChildren().add(heart);
+			if (inMine) {
+				Button edit = new Button("Edit recipe");
+				edit.setOnAction(e -> startEditing(recipe));
+				actions.getChildren().add(edit);
+			}
 		} else {
 			Button edit = new Button("Edit recipe");
 			edit.setOnAction(e -> startEditing(recipe));
@@ -1464,6 +1753,15 @@ public class RecipeBrowserView extends BorderPane {
 			}
 			sourceRow.getStyleClass().add("rc-source");
 			heroText.getChildren().add(sourceRow);
+			if (recipe.getSourceUrl() != null) {
+				Label careful = new Label(
+						"Loaded automatically from the web, so it may have come through wrong or glitched. "
+								+ "Check the link for the most accurate version.");
+				careful.getStyleClass().add("rc-meta");
+				careful.setWrapText(true);
+				careful.setMinHeight(Region.USE_PREF_SIZE);
+				heroText.getChildren().add(careful);
+			}
 		}
 		heroText.getChildren().addAll(stars, actions);
 		if (!message.isEmpty()) {

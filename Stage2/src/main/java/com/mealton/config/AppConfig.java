@@ -41,7 +41,7 @@ public final class AppConfig {
 				throw new IllegalStateException("Could not read " + file + ": " + e.getMessage());
 			}
 		}
-		for (String key : List.of("LLM_PROVIDER", "LLM_MODEL", "LLM_API_KEY")) {
+		for (String key : List.of("LLM_PROVIDER", "LLM_MODEL", "LLM_API_KEY", "SPOONACULAR_API_KEY")) {
 			String fromEnv = System.getenv(key);
 			if (fromEnv != null && !fromEnv.isBlank()) {
 				map.put(key, fromEnv.trim());
@@ -90,6 +90,15 @@ public final class AppConfig {
 	public String llmApiKey() {
 		String key = get("LLM_API_KEY", null);
 		return PLACEHOLDER.equals(key) ? null : key; // the .env.example placeholder is not a real key
+	}
+
+	/**
+	 * The Spoonacular recipe search key, or null if none was set. Never print or
+	 * log this.
+	 */
+	public String spoonacularKey() {
+		String key = get("SPOONACULAR_API_KEY", null);
+		return key == null || key.startsWith("YOUR_") ? null : key;
 	}
 
 	public boolean hasApiKey() {

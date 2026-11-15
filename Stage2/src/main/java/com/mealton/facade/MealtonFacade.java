@@ -97,6 +97,10 @@ public class MealtonFacade {
 	private final AgentMemory memory = new AgentMemory();
 	private MealtonAgent agent; // null until enableAgent() is called
 	private RecipeImporter.Fetcher importFetcher = new HttpFetcher();
+	/** The most recipes found for you that are kept at once. */
+	public static final int MAX_DISCOVERED = 300;
+	private com.mealton.recipe.RecipeSource recipeSource; // null = TheMealDB (and Spoonacular with a key)
+	private String spoonacularKey; // null = read it from .env
 	private LLMClient llm; // null until enableAgent() is called; also writes the one-line recipe reasons
 
 	public MealtonFacade() {
@@ -338,6 +342,31 @@ public class MealtonFacade {
 		return recipes.get(id);
 	}
 
+	/**
+	 * Hides the built-in recipes until recipes from the internet have loaded (or 5
+	 * minutes pass).
+	 */
+	public void holdStarterRecipes() {
+		recipes.holdStarterRecipes(5 * 60 * 1000L);
+	}
+
+	/**
+	 * Shows the built-in recipes (the internet recipes loaded, or could not be
+	 * loaded).
+	 */
+	public void releaseStarterRecipes() {
+		recipes.releaseStarterRecipes();
+	}
+
+	public boolean isHoldingStarterRecipes() {
+		return recipes.isHoldingStarters();
+	}
+
+	/** Every recipe including ones held back; for saving the user's data. */
+	public List<Recipe> getRecipesForSaving() {
+		return recipes.getEverything();
+	}
+
 	/** Every recipe: the ready-made library plus the user's own. */
 	public List<Recipe> getRecipes() {
 		return recipes.getAll();
@@ -430,6 +459,26 @@ public class MealtonFacade {
 	 * True when the All recipes tab can be refreshed with new recipes (Claude is
 	 * switched on).
 	 */
+	/**
+	 * Refresh always works: recipes come from a recipe search service, with Claude
+	 * as the backup.
+	 */
+	public boolean canFindRecipes() {
+		return true;
+	}
+
+	/**
+	 * Uses this Spoonacular key instead of the one in .env (the tests use this).
+	 */
+	public void setSpoonacularKey(String key) {
+		this.spoonacularKey = key;
+	}
+
+	/** Uses another place to find recipes (the tests use this). */
+	public void setRecipeSource(com.mealton.recipe.RecipeSource source) {
+		this.recipeSource = source;
+	}
+
 	public boolean canGenerateRecipes() {
 		return llm != null;
 	}
@@ -441,8 +490,14 @@ public class MealtonFacade {
 	public java.util.List<String> aiFilterSuggestions(int max) {
 		java.util.Map<String, Integer> counts = new java.util.HashMap<>();
 		for (Recipe r : recipes.getAll()) {
-			r.getAiTags().forEach(t -> counts.merge(t, 1, Integer::sum));
+			r.getAiTags().stream().filter(t -> !t.equals(Recipe.MEALTON_TAG))
+					.forEach(t -> counts.merge(t, 1, Integer::sum));
 		}
+		int total = recipes.getAll().size();
+		// trending words: used by a few recipes (not just one) but not by nearly all of
+		// them,
+		// so the chips change with the recipes you have and always narrow the list
+		counts.values().removeIf(c -> c < 2 || (total >= 20 && c > total * 0.8));
 		return counts.entrySet().stream()
 				.sorted(java.util.Map.Entry.<String, Integer>comparingByValue().reversed()
 						.thenComparing(java.util.Map.Entry.comparingByKey()))
@@ -498,13 +553,99 @@ public class MealtonFacade {
 	 */
 	public java.util.List<Recipe> generateRecipeDrafts(int count, String hint, java.util.List<String> avoidTitles,
 			java.util.function.IntConsumer progress) {
+		// 1. recipe search services (no Claude needed): each one adds some, for variety
+		java.util.Set<String> known = java.util.concurrent.ConcurrentHashMap.newKeySet();
+		avoidTitles.forEach(t -> known.add(t.toLowerCase(java.util.Locale.ROOT)));
+		java.util.List<com.mealton.recipe.RecipeSource> sources = new java.util.ArrayList<>();
+		if (recipeSource != null) {
+			sources.add(recipeSource);
+		} else {
+			String key = spoonacularKey != null ? spoonacularKey : com.mealton.config.AppConfig.load().spoonacularKey();
+			if (key != null && !key.isBlank()) {
+				sources.add(new com.mealton.recipe.SpoonacularSource(importFetcher, key));
+			}
+			sources.add(new com.mealton.recipe.TheMealDbSource(importFetcher));
+		}
+		String serviceError = null;
+		java.util.List<String> failures = new java.util.ArrayList<>();
+		java.util.List<String> emptyNames = new java.util.ArrayList<>();
+		java.util.List<Recipe> out = new java.util.ArrayList<>();
+		int quota = (int) Math.ceil(count / (double) sources.size());
+		boolean[] mayHaveMore = new boolean[sources.size()];
+		for (int pass = 0; pass < 2 && out.size() < count; pass++) {
+			for (int si = 0; si < sources.size() && out.size() < count; si++) {
+				if (pass == 1 && !mayHaveMore[si]) {
+					continue; // second round: only sources that filled their share can give more
+				}
+				com.mealton.recipe.RecipeSource source = sources.get(si);
+				int want = pass == 0 ? quota : count - out.size();
+				int before = out.size();
+				try {
+					java.util.List<RecipeImporter.Imported> got = source.find(want, hint, known,
+							n -> progress.accept(before + n));
+					System.out.println(
+							"[Mealton] " + source.name() + " returned " + got.size() + " recipes for \"" + hint + "\"");
+					for (RecipeImporter.Imported i : got) {
+						if (out.size() >= count
+								|| !known.add(i.recipe().getTitle().toLowerCase(java.util.Locale.ROOT))) {
+							continue;
+						}
+						out.add(i.recipe());
+						if (i.imageFile() != null) {
+							draftPhotos.put(i.recipe(), i.imageFile());
+						}
+					}
+					if (pass == 0) {
+						mayHaveMore[si] = got.size() >= want;
+						if (got.isEmpty()) {
+							emptyNames.add(source.name());
+							serviceError = source.name() + " had no new recipes for you right now.";
+						}
+					}
+				} catch (java.io.IOException | RuntimeException e) {
+					System.out.println("[Mealton] " + source.name() + " failed: " + e);
+					serviceError = source.name() + ": " + e.getMessage();
+					String m = String.valueOf(e.getMessage());
+					String note = m.contains("402") || m.contains("429")
+							? source.name() + "'s free daily limit is used up (it comes back tomorrow)."
+							: source.name() + " could not be reached right now (" + m + ").";
+					if (!failures.contains(note)) {
+						failures.add(note);
+					}
+				}
+			}
+		}
+		if (!out.isEmpty()) {
+			return out;
+		}
+		// Claude is never used for searching or Refresh (it costs tokens): only the
+		// Generate button writes recipes
+		boolean asked = hint != null && !hint.isBlank();
+		StringBuilder why = new StringBuilder();
+		if (!emptyNames.isEmpty()) {
+			why.append(String.join(" and ", emptyNames)).append(emptyNames.size() == 1 ? " does" : " do")
+					.append(" not have any new recipes").append(asked ? " for \"" + hint + "\"" : "").append(". ");
+		}
+		for (String note : failures) {
+			why.append(note).append(' ');
+		}
+		why.append(asked ? "Try fewer filters, or use Generate one with Mealton."
+				: "Try again later, or use Generate one with Mealton.");
+		throw new IllegalStateException(why.toString().trim());
+	}
+
+	/**
+	 * Claude writes a recipe for what the person searched for when nothing matched.
+	 * They are marked "Generated by Mealton". Needs Claude to be on.
+	 *
+	 * @throws IllegalStateException if Claude is off or could not write one
+	 */
+	public java.util.List<Recipe> writeRecipeDrafts(int count, String hint) {
 		if (llm == null) {
-			throw new IllegalStateException("Turn Claude on (an API key in .env) to generate new recipes.");
+			throw new IllegalStateException(
+					"Turn Claude on (an API key in .env) so Mealton can write a recipe for you.");
 		}
-		if (llm.canSearchWeb()) {
-			return findRecipesOnTheWeb(count, hint, avoidTitles, progress);
-		}
-		return inventRecipes(count, hint, avoidTitles);
+		return inventRecipes(count, hint, recipeTitles());
 	}
 
 	private java.util.List<Recipe> inventRecipes(int count, String hint, java.util.List<String> avoidTitles) {
@@ -594,7 +735,7 @@ public class MealtonFacade {
 		java.util.List<Recipe> found = java.util.Collections.synchronizedList(new java.util.ArrayList<>());
 		java.util.concurrent.ExecutorService readPool = java.util.concurrent.Executors.newFixedThreadPool(8);
 		java.util.List<java.util.concurrent.Future<?>> reads = new java.util.ArrayList<>();
-		RecipeImporter importer = new RecipeImporter(importFetcher, llm);
+		RecipeImporter importer = new RecipeImporter(importFetcher, null);
 		for (java.util.Map.Entry<String, String> e : linkTopic.entrySet()) {
 			reads.add(readPool.submit(() -> {
 				if (found.size() >= count) {
@@ -643,12 +784,7 @@ public class MealtonFacade {
 	 * about {@code total} recipes (never fewer than 30).
 	 */
 	public int discoveryCount(int total) {
-		int staying = 0;
-		for (Recipe r : recipes.getAll()) {
-			if (!(r.isDiscovered() && !r.isSaved())) {
-				staying++;
-			}
-		}
+		int staying = recipes.getAll().size();
 		return Math.max(30, total - staying);
 	}
 
@@ -669,10 +805,19 @@ public class MealtonFacade {
 				planned.add(entry.recipe().getTitle());
 			}
 		}
-		for (Recipe r : java.util.List.copyOf(recipes.getAll())) {
+		// each Refresh adds to what is already there; only when there are very many are
+		// the
+		// oldest generated recipes you did not keep dropped
+		java.util.List<Recipe> old = new java.util.ArrayList<>();
+		for (Recipe r : recipes.getAll()) {
 			if (r.isDiscovered() && !r.isSaved() && !planned.contains(r.getTitle())) {
-				recipes.delete(r.getId());
+				old.add(r);
 			}
+		}
+		old.sort(java.util.Comparator.comparingLong(Recipe::getId));
+		int drop = old.size() + fresh.size() - MAX_DISCOVERED;
+		for (int i = 0; i < drop && i < old.size(); i++) {
+			recipes.delete(old.get(i).getId());
 		}
 		int added = 0;
 		for (Recipe r : fresh) {
@@ -738,8 +883,9 @@ public class MealtonFacade {
 	 */
 	public Recipe setStepIngredients(long id, int step, java.util.List<String> names) {
 		Recipe recipe = recipes.get(id);
-		if (recipe.isLibrary()) {
-			throw new IllegalArgumentException("Ready-made recipes cannot be changed. Write your own recipe instead.");
+		if (recipe.isLibrary() && !recipe.isInMyRecipes()) {
+			throw new IllegalArgumentException(
+					"Ready-made recipes cannot be changed until you save them. Write your own recipe instead.");
 		}
 		recipe.setStepIngredients(step, names);
 		return recipe;
@@ -1314,7 +1460,7 @@ public class MealtonFacade {
 		for (com.mealton.plan.PrepScheduler.Row r : schedule.shortRows()) {
 			double onList = 0;
 			for (ShoppingItem item : shopping.getItems()) {
-				if (!item.isChecked() && item.getName().trim().equalsIgnoreCase(r.name())
+				if (!item.isChecked() && com.mealton.util.TextMatch.sameName(item.getName(), r.name())
 						&& item.getUnit().equalsIgnoreCase(r.unit())) {
 					onList += item.getQuantity();
 				}
@@ -1582,7 +1728,7 @@ public class MealtonFacade {
 			double amount = Math.max(low.needed() - low.left(), low.needed());
 			String category = "Other";
 			for (PantryItem p : pantry.getItems()) {
-				if (p.getName().equalsIgnoreCase(low.name())) {
+				if (com.mealton.util.TextMatch.sameName(p.getName(), low.name())) {
 					category = p.getCategory();
 				}
 			}

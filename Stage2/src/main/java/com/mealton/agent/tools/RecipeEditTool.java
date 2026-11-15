@@ -181,14 +181,14 @@ public class RecipeEditTool implements Tool {
 	 */
 	private ToolResult save(Recipe r, String title, int servings, List<RecipeIngredient> ingredients,
 			List<String> steps, Map<String, String> args, String what) {
-		if (!r.isLibrary() && !r.isDiscovered()) {
-			Recipe edited = r.copyWith(title, servings, ingredients, steps);
+		if ((!r.isLibrary() && !r.isDiscovered()) || r.isInMyRecipes()) { // yours, or saved: edited in place
+			Recipe edited = r.copyWith(title, servings, ingredients, steps).markMadeByMealton();
 			Recipe saved = facade.updateRecipe(r.getId(), edited);
 			return ToolResult.ok(what + " Updated your recipe '" + saved.getTitle() + "' (#" + saved.getId() + ").\n"
 					+ describe(saved));
 		}
 		String copyTitle = title.equals(r.getTitle()) ? uniqueTitle(r.getTitle() + " (my version)") : title;
-		Recipe copy = facade.saveRecipe(r.copyWith(copyTitle, servings, ingredients, steps));
+		Recipe copy = facade.saveRecipe(r.copyWith(copyTitle, servings, ingredients, steps).markMadeByMealton());
 		String note = "";
 		if ("true".equalsIgnoreCase(args.getOrDefault("use_on_calendar", "false"))) {
 			note = " Put it on the calendar in place of the original on " + swapOnCalendar(r.getId(), copy.getId())

@@ -84,6 +84,8 @@ public class PlanMealsView extends StackPane {
 	// results
 	private final VBox results = new VBox(16);
 	private Draft draft;
+	private VBox formPane; // the options on the left
+	private Button optionsToggle; // hides the options so the calendar can use the whole width
 	private final Set<String> kept = new HashSet<>();
 	private String toast = "";
 	private String formError = "";
@@ -105,9 +107,13 @@ public class PlanMealsView extends StackPane {
 				"Pick the dates, and Mealton drafts meals for each day from your profile, allergies and pantry — then checks every meal before saving.",
 				"mp-hint");
 		sub.setWrapText(true);
-		VBox top = new VBox(6, back, title, sub);
+		optionsToggle = button("Hide options", "mp-outline", () -> setOptionsHidden(formPane.isVisible()));
+		optionsToggle.setVisible(false);
+		optionsToggle.setManaged(false);
+		VBox top = new VBox(6, back, title, sub, optionsToggle);
 
 		VBox form = buildForm();
+		formPane = form;
 		form.setMinWidth(330);
 		form.setPrefWidth(340);
 		form.setMaxWidth(360);
@@ -440,11 +446,26 @@ public class PlanMealsView extends StackPane {
 					avoidRecent.isSelected());
 			draft = facade.draftPlan(o);
 			kept.clear();
+			setOptionsHidden(true); // give the calendar the whole width
 		} catch (IllegalArgumentException e) {
 			formError = e.getMessage();
 			draft = null;
+			setOptionsHidden(false);
 		}
 		drawResults();
+	}
+
+	/**
+	 * Hides or shows the options on the left; hidden, the week calendar gets the
+	 * whole width.
+	 */
+	private void setOptionsHidden(boolean hidden) {
+		boolean hide = hidden && draft != null;
+		formPane.setVisible(!hide);
+		formPane.setManaged(!hide);
+		optionsToggle.setText(hide ? "Show options" : "Hide options");
+		optionsToggle.setVisible(draft != null);
+		optionsToggle.setManaged(draft != null);
 	}
 
 	// ------------------------------------------------------------------ results
@@ -949,6 +970,20 @@ public class PlanMealsView extends StackPane {
 		});
 		other.setDisable(isKept);
 		FlowPane actions = new FlowPane(8, 8, keep, other);
+		if (r.isLibrary()) {
+			// save the meal to My Recipes (the heart on the Recipes page)
+			boolean saved = facade.getMyRecipes().stream().anyMatch(x -> x.getId() == r.getId());
+			Button save = button(saved ? "\u2665  Saved to My Recipes" : "\u2661  Save recipe",
+					saved ? "mp-primary" : "mp-outline", () -> {
+						if (facade.getMyRecipes().stream().anyMatch(x -> x.getId() == r.getId())) {
+							facade.removeFromMyRecipes(r.getId());
+						} else {
+							facade.saveToMyRecipes(r.getId());
+						}
+						renderPreview();
+					});
+			actions.getChildren().add(save);
+		}
 		if (r.getSourceUrl() != null && !r.getSourceUrl().isBlank()) {
 			actions.getChildren().add(button("View original \u2197", "mp-link", () -> openLink(r.getSourceUrl())));
 		}
@@ -1052,15 +1087,9 @@ public class PlanMealsView extends StackPane {
 		clip.setArcHeight(28);
 		box.setClip(clip);
 		if (file.isPresent()) {
-			try {
-				javafx.scene.image.ImageView v = new javafx.scene.image.ImageView(
-						new javafx.scene.image.Image(file.get().toUri().toString(), w * 2, h * 2, false, true));
-				v.setFitWidth(w);
-				v.setFitHeight(h);
-				v.setPreserveRatio(false);
+			javafx.scene.image.ImageView v = PhotoFit.cover(file.get(), w, h);
+			if (v != null) {
 				box.getChildren().add(v);
-			} catch (RuntimeException ignored) {
-				// no picture: the plain box is fine
 			}
 		}
 		return box;

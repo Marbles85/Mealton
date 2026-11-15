@@ -62,7 +62,7 @@ public final class UserDataMapper {
 
 		List<LibraryRow> library = new ArrayList<>();
 		List<OwnRecipeRow> own = new ArrayList<>();
-		for (Recipe r : facade.getRecipes()) {
+		for (Recipe r : facade.getRecipesForSaving()) {
 			if (r.isLibrary() && r.isDiscovered() && !r.isSaved()) {
 				continue; // generated recipes you did not keep are simply generated again next time
 			}
@@ -197,6 +197,12 @@ public final class UserDataMapper {
 							// a step that no longer exists: ignore
 						}
 					});
+				}
+				// a ready-made recipe the user edited comes back as their own: drop the
+				// original
+				Recipe original = findByTitle(facade, row.title());
+				if (original != null && original.isLibrary() && !original.isDiscovered()) {
+					facade.deleteRecipe(original.getId());
 				}
 				Recipe saved = facade.saveRecipe(made);
 				if (row.rating() > 0) {

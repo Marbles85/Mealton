@@ -123,6 +123,15 @@ public class Recipe {
 		this.library = library;
 	}
 
+	/**
+	 * A saved ready-made (or online) recipe that the user edits becomes their own
+	 * recipe: it keeps its id, photo, rating and place in the plan.
+	 */
+	public void becomeOwn() {
+		this.library = false;
+		this.discovered = false;
+	}
+
 	/** True when the user saved this recipe with the Save heart. */
 	public boolean isSaved() {
 		return saved;
@@ -326,6 +335,36 @@ public class Recipe {
 	/** Goes back to the automatic chips for one step. */
 	public void resetStepIngredients(int step) {
 		stepUses.remove(step);
+	}
+
+	/**
+	 * A hidden tag on recipes Mealton wrote or changed for the person (it is not
+	 * shown as a filter word).
+	 */
+	public static final String MEALTON_TAG = "made by mealton";
+
+	/**
+	 * True for recipes Mealton made: the built-in starter recipes, recipes Claude
+	 * wrote itself, and recipes Mealton edited or substituted for the person.
+	 */
+	public boolean isMadeByMealton() {
+		if (aiTags.contains(MEALTON_TAG)) {
+			return true;
+		}
+		if (!library) {
+			return false;
+		}
+		return !discovered || (sourceUrl == null
+				&& (RecipeDiscovery.CREATOR.equals(sourceName) || RecipeDiscovery.OLD_CREATOR.equals(sourceName)));
+	}
+
+	/** Marks this recipe as made by Mealton and returns it. */
+	public Recipe markMadeByMealton() {
+		List<String> tags = new ArrayList<>();
+		tags.add(MEALTON_TAG);
+		tags.addAll(aiTags);
+		setAiTags(tags);
+		return this;
 	}
 
 	/** Filter words Claude gave this recipe, for example "italian" or "quick". */

@@ -528,15 +528,9 @@ public class PrepDayView extends StackPane {
 		box.setClip(clip);
 		var file = facade.getRecipePhoto(r.getId());
 		if (file.isPresent()) {
-			try {
-				javafx.scene.image.ImageView v = new javafx.scene.image.ImageView(
-						new javafx.scene.image.Image(file.get().toUri().toString(), 144, 144, false, true));
-				v.setFitWidth(72);
-				v.setFitHeight(72);
-				v.setPreserveRatio(false);
+			javafx.scene.image.ImageView v = PhotoFit.cover(file.get(), 72, 72);
+			if (v != null) {
 				box.getChildren().add(v);
-			} catch (RuntimeException ignored) {
-				// no picture: the plain box is fine
 			}
 		}
 		box.setOpacity(faded ? 0.6 : 1);
