@@ -399,6 +399,32 @@ public class Recipe {
 	}
 
 	/**
+	 * A copy with new content (title, servings, ingredients, steps) that keeps the
+	 * times, source, photo and rating. The copy is not saved and is never a library
+	 * or discovered recipe, so it can be saved as the user's own. When the number
+	 * of steps changes, the per-step ingredient links and times are dropped because
+	 * they would no longer line up.
+	 */
+	public Recipe copyWith(String newTitle, int newServings, List<RecipeIngredient> newIngredients,
+			List<String> newSteps) {
+		Recipe c = new Recipe(newTitle, newServings, newIngredients, newSteps);
+		c.rating = rating;
+		c.prepMinutes = prepMinutes;
+		c.cookMinutes = cookMinutes;
+		c.sourceName = sourceName;
+		c.sourceUrl = sourceUrl;
+		c.photo = photo;
+		c.aiTags = new ArrayList<>(aiTags);
+		c.totalOverride = totalOverride;
+		c.freshOverride = freshOverride;
+		if (newSteps.size() == steps.size()) {
+			stepUses.forEach((k, v) -> c.stepUses.put(k, new ArrayList<>(v)));
+			c.stepTimes.putAll(stepTimes);
+		}
+		return c;
+	}
+
+	/**
 	 * A copy of this recipe for a different number of servings (feature F10 in
 	 * use). The copy is not saved: it has no id until you save it.
 	 */
