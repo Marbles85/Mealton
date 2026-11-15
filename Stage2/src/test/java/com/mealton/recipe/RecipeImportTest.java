@@ -343,22 +343,26 @@ class RecipeImportTest {
 	}
 
 	@Test
-	void refreshAddsGeneratedRecipesAndKeepsSavedOnes() {
+	void generatedRecipesAreAddedAndSavedOnesAreKept() {
 		MealtonFacade facade = withoutServices();
 		assertFalse(facade.canGenerateRecipes());
 		assertThrows(IllegalStateException.class, () -> facade.refreshDiscoveredRecipes(2, ""));
 		facade.enableAgent(new MockLLMClient().thenSay(batch("Rice Bowl", "Lemon Rice"))
 				.thenSay(batch("Herb Rice", "Pea Rice")).thenSay(batch("Plain Rice")));
+		// Refresh and search never use Claude, even when it is on: the services have
+		// nothing, so nothing is added
+		assertThrows(IllegalStateException.class, () -> facade.refreshDiscoveredRecipes(2, ""));
 		int base = facade.getRecipes().size();
-		assertEquals(2, facade.refreshDiscoveredRecipes(2, ""));
+		// only the Generate button writes recipes with Claude
+		assertEquals(2, facade.swapInDiscoveredRecipes(facade.writeRecipeDrafts(2, "")));
 		assertEquals(base + 2, facade.getRecipes().size());
 		Recipe keep = facade.getRecipes().stream().filter(r -> r.getTitle().equals("Rice Bowl")).findFirst()
 				.orElseThrow();
 		assertTrue(keep.isDiscovered() && keep.isLibrary());
 		assertEquals(java.util.List.of("asian", "quick"), facade.aiFilterSuggestions(5));
 		facade.saveToMyRecipes(keep.getId());
-		assertEquals(2, facade.refreshDiscoveredRecipes(2, ""));
-		assertEquals(base + 4, facade.getRecipes().size()); // each Refresh adds to what is there
+		assertEquals(2, facade.swapInDiscoveredRecipes(facade.writeRecipeDrafts(2, "")));
+		assertEquals(base + 4, facade.getRecipes().size()); // each one adds to what is there
 		assertTrue(facade.getRecipes().stream().anyMatch(r -> r.getTitle().equals("Lemon Rice")));
 
 		// a kept generated recipe survives saving to disk as a normal recipe of the
@@ -375,7 +379,13 @@ class RecipeImportTest {
 		MealtonFacade facade = withoutServices();
 		facade.enableAgent(new MockLLMClient().thenSay("sorry"));
 		int base = facade.getRecipes().size();
-		assertEquals(0, facade.refreshDiscoveredRecipes(5, ""));
+		int added;
+		try {
+			added = facade.swapInDiscoveredRecipes(facade.writeRecipeDrafts(5, ""));
+		} catch (IllegalStateException unusable) {
+			added = 0; // a reply with no usable recipe is reported, nothing is added
+		}
+		assertEquals(0, added);
 		assertEquals(base, facade.getRecipes().size());
 	}
 }
