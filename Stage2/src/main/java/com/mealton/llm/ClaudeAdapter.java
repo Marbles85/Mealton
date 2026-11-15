@@ -28,7 +28,11 @@ public class ClaudeAdapter implements LLMClient {
 
 	public static final String DEFAULT_URL = "https://api.anthropic.com/v1/messages";
 	private static final String API_VERSION = "2023-06-01";
-	private static final int MAX_TOKENS = 1024;
+	private static final int MAX_TOKENS = 2048;
+	/**
+	 * Writing several whole recipes as JSON needs far more room than a chat reply.
+	 */
+	private static final int GENERATE_MAX_TOKENS = 8000;
 
 	private final String apiKey;
 	private final String model;
@@ -59,22 +63,22 @@ public class ClaudeAdapter implements LLMClient {
 
 	@Override
 	public LLMResponse chat(List<Message> messages, List<ToolSpec> toolSpecs) {
-		JsonNode reply = send(buildRequest(messages, toolSpecs));
+		JsonNode reply = send(buildRequest(messages, toolSpecs, MAX_TOKENS));
 		return parseResponse(reply);
 	}
 
 	@Override
 	public String generate(String prompt) {
-		return chat(List.of(Message.user(prompt)), List.of()).text();
+		return parseResponse(send(buildRequest(List.of(Message.user(prompt)), List.of(), GENERATE_MAX_TOKENS))).text();
 	}
 
 	// ---------------------------------------------------------------- our types ->
 	// Claude JSON
 
-	private ObjectNode buildRequest(List<Message> messages, List<ToolSpec> toolSpecs) {
+	private ObjectNode buildRequest(List<Message> messages, List<ToolSpec> toolSpecs, int maxTokens) {
 		ObjectNode body = json.createObjectNode();
 		body.put("model", model);
-		body.put("max_tokens", MAX_TOKENS);
+		body.put("max_tokens", maxTokens);
 
 		// SYSTEM messages go in a separate "system" field
 		StringBuilder system = new StringBuilder();
@@ -166,11 +170,66 @@ public class ClaudeAdapter implements LLMClient {
 		return tool;
 	}
 
+	// ---------------------------------------------------------------- web search
+
+	@Override
+	public boolean canSearchWeb() {
+		return true;
+	}
+
+	/**
+	 * Uses Claude's built-in web search tool to find pages that each hold one
+	 * recipe. The links come from the search results themselves (not from text
+	 * Claude wrote), so they are real pages. Needs web search to be enabled for the
+	 * API organisation in the Anthropic console.
+	 */
+	@Override
+	public List<String> searchRecipePages(String topic, String diet, int maxSearches) {
+		ObjectNode body = json.createObjectNode();
+		body.put("model", model);
+		body.put("max_tokens", 2000);
+		ArrayNode tools = body.putArray("tools");
+		ObjectNode search = tools.addObject();
+		search.put("type", "web_search_20250305");
+		search.put("name", "web_search");
+		search.put("max_uses", Math.max(1, Math.min(8, maxSearches)));
+		StringBuilder prompt = new StringBuilder("Use web search to find well-reviewed recipe pages for: ")
+				.append(topic).append(". ")
+				.append("I want links to individual recipe pages (one recipe per page, with ingredients, steps, photo and user ratings), ")
+				.append("not lists, roundups or videos. Prefer well-known recipe sites. Vary the dishes. ");
+		if (diet != null && !diet.isBlank() && !diet.equalsIgnoreCase("anything")) {
+			prompt.append("Every recipe must suit this diet: ").append(diet).append(". ");
+		}
+		prompt.append("When you are done, reply with one short sentence.");
+		ArrayNode messages = body.putArray("messages");
+		messages.add(textMessage("user", prompt.toString()));
+		JsonNode reply = send(body);
+		parseResponse(reply); // counts the usage
+		List<String> links = new ArrayList<>();
+		for (JsonNode block : reply.path("content")) {
+			if ("web_search_tool_result".equals(block.path("type").asText())) {
+				JsonNode content = block.path("content");
+				if (content.isArray()) {
+					for (JsonNode hit : content) {
+						String link = hit.path("url").asText("");
+						if (link.startsWith("https://") && !links.contains(link)) {
+							links.add(link);
+						}
+					}
+				} else if (content.path("type").asText().endsWith("error")) {
+					throw new IllegalStateException("Web search failed: " + content.path("error_code").asText("unknown")
+							+ ". Check that web search is enabled for your API key in the Anthropic console.");
+				}
+			}
+		}
+		return links;
+	}
+
 	// ---------------------------------------------------------------- sending
 
 	private JsonNode send(ObjectNode body) {
 		try {
-			HttpRequest request = HttpRequest.newBuilder(URI.create(url)).timeout(Duration.ofSeconds(60))
+			HttpRequest request = HttpRequest.newBuilder(URI.create(url)).timeout(Duration.ofSeconds(120))
 					.header("content-type", "application/json").header("x-api-key", apiKey)
 					.header("anthropic-version", API_VERSION)
 					.POST(HttpRequest.BodyPublishers.ofString(json.writeValueAsString(body))).build();
@@ -200,7 +259,7 @@ public class ClaudeAdapter implements LLMClient {
 	// ---------------------------------------------------------------- Claude JSON
 	// -> our types
 
-	private LLMResponse parseResponse(JsonNode reply) {
+	private synchronized LLMResponse parseResponse(JsonNode reply) {
 		calls++;
 		inputTokens += reply.path("usage").path("input_tokens").asLong(0);
 		outputTokens += reply.path("usage").path("output_tokens").asLong(0);
