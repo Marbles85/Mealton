@@ -9,9 +9,19 @@ import java.util.List;
  */
 public record UserData(int version, ProfileRow profile, List<PantryRow> pantry, List<ShoppingRow> shopping,
 		List<LibraryRow> libraryRecipes, List<OwnRecipeRow> ownRecipes, List<PlanRow> plan, List<CalendarRow> calendar,
-		List<DiaryRow> diary, List<String> mealTags) {
+		List<DiaryRow> diary, List<String> mealTags, List<CategoryRow> categories) {
 
 	public static final int CURRENT_VERSION = 1;
+
+	/**
+	 * The form used before pantry categories were saved (they then load as the
+	 * defaults).
+	 */
+	public UserData(int version, ProfileRow profile, List<PantryRow> pantry, List<ShoppingRow> shopping,
+			List<LibraryRow> libraryRecipes, List<OwnRecipeRow> ownRecipes, List<PlanRow> plan,
+			List<CalendarRow> calendar, List<DiaryRow> diary, List<String> mealTags) {
+		this(version, profile, pantry, shopping, libraryRecipes, ownRecipes, plan, calendar, diary, mealTags, null);
+	}
 
 	/**
 	 * The form used before meal tags were saved (they then load as the default
@@ -20,7 +30,7 @@ public record UserData(int version, ProfileRow profile, List<PantryRow> pantry, 
 	public UserData(int version, ProfileRow profile, List<PantryRow> pantry, List<ShoppingRow> shopping,
 			List<LibraryRow> libraryRecipes, List<OwnRecipeRow> ownRecipes, List<PlanRow> plan,
 			List<CalendarRow> calendar, List<DiaryRow> diary) {
-		this(version, profile, pantry, shopping, libraryRecipes, ownRecipes, plan, calendar, diary, null);
+		this(version, profile, pantry, shopping, libraryRecipes, ownRecipes, plan, calendar, diary, null, null);
 	}
 
 	/**
@@ -47,7 +57,18 @@ public record UserData(int version, ProfileRow profile, List<PantryRow> pantry, 
 	public record PantryRow(String name, double quantity, String unit, String category, String expires) {
 	}
 
-	public record ShoppingRow(String name, double quantity, String unit, String category, boolean checked) {
+	public record ShoppingRow(String name, double quantity, String unit, String category, boolean checked,
+			boolean pinned, String source) {
+
+		/** The form used before pinning and the recipe label were saved. */
+		public ShoppingRow(String name, double quantity, String unit, String category, boolean checked) {
+			this(name, quantity, unit, category, checked, false, "");
+		}
+	}
+
+	/** How one list ("pantry" or "list") is split into categories. */
+	public record CategoryRow(String view, boolean suggestedOn, List<String> custom, List<String> order,
+			java.util.Map<String, String> colors, java.util.Map<String, String> aliases) {
 	}
 
 	/**

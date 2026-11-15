@@ -1,0 +1,99 @@
+/* Styles for the Pantry & shopping list page (loaded by PantryShoppingView). */
+.pn-page { -fx-background-color: #f6f8f4; }
+.pn-scroll { -fx-background-color: transparent; -fx-background-insets: 0; -fx-padding: 0; }
+.pn-scroll > .viewport { -fx-background-color: transparent; }
+.pn-title { -fx-font-size: 28px; -fx-font-weight: bold; -fx-text-fill: #25362b; }
+.pn-sub { -fx-font-size: 13px; -fx-text-fill: #6b7d70; }
+.pn-h2 { -fx-font-size: 17px; -fx-font-weight: bold; -fx-text-fill: #25362b; }
+.pn-label { -fx-font-size: 13px; -fx-font-weight: bold; -fx-text-fill: #3e4a42; }
+.pn-muted { -fx-font-size: 12px; -fx-text-fill: #5b6660; }
+.pn-error { -fx-font-size: 12px; -fx-font-weight: bold; -fx-text-fill: #b3261e; }
+.pn-message { -fx-font-size: 13px; -fx-font-weight: bold; -fx-text-fill: #2f5a3a; }
+.pn-card { -fx-background-color: white; -fx-background-radius: 16; -fx-border-color: #e3e8e1; -fx-border-radius: 16; -fx-padding: 18; }
+
+.pn-seg-bar { -fx-background-color: #e6ede2; -fx-background-radius: 12; -fx-padding: 4; }
+.button.pn-seg { -fx-background-color: transparent; -fx-background-radius: 9; -fx-border-color: transparent; -fx-border-width: 0; -fx-text-fill: #4a564e; -fx-font-weight: normal; -fx-padding: 0 18 0 18; -fx-min-height: 38; -fx-cursor: hand; }
+.button.pn-seg:hover { -fx-background-color: rgba(255,255,255,0.5); }
+.button.pn-seg:focused { -fx-border-color: transparent; }
+.button.pn-seg-on, .button.pn-seg-on:hover { -fx-background-color: white; -fx-text-fill: #2f4a34; -fx-font-weight: bold; -fx-effect: dropshadow(gaussian, rgba(31,42,34,0.12), 3, 0, 0, 1); }
+
+.pn-banner { -fx-background-color: #fcefe2; -fx-background-radius: 14; -fx-padding: 14 16 14 16; }
+.pn-banner-title { -fx-font-size: 14px; -fx-font-weight: bold; -fx-text-fill: #6e3606; }
+.pn-banner-text { -fx-font-size: 13px; -fx-text-fill: #6e3606; }
+.pn-edit-bar { -fx-background-color: #e6ede2; -fx-padding: 14 18 14 18; -fx-border-color: transparent transparent #dce3d9 transparent; }
+.pn-toolbar { -fx-padding: 14 18 14 18; -fx-border-color: transparent transparent #eef2eb transparent; }
+.pn-listcard { -fx-background-color: white; -fx-background-radius: 16; -fx-border-color: #e3e8e1; -fx-border-radius: 16; }
+.pn-section { -fx-background-color: white; }
+.pn-head { -fx-background-color: #f7f9f5; -fx-padding: 14 18 10 18; -fx-border-color: #eef2eb transparent #eef2eb transparent; }
+.pn-head-rec { -fx-background-color: #fbf8f1; -fx-padding: 14 18 10 18; -fx-border-color: #eef2eb transparent #eef2eb transparent; }
+.pn-head-pin { -fx-background-color: #fbf6ea; -fx-padding: 14 18 10 18; -fx-border-color: #eef2eb transparent #eef2eb transparent; }
+.pn-empty { -fx-font-size: 13px; -fx-text-fill: #8a948d; -fx-padding: 12 18 12 18; }
+.pn-drop-section { -fx-background-color: #eef4ec; }
+.pn-drop-row { -fx-background-color: #e6ede2; }
+.pn-edit-bar .pn-banner-text { -fx-text-fill: #2f4a34; }
+.button.pn-banner-btn { -fx-background-color: white; -fx-background-radius: 10; -fx-border-color: transparent; -fx-border-width: 0; -fx-text-fill: #6e3606; -fx-font-weight: bold; -fx-min-height: 38; -fx-padding: 0 14 0 14; -fx-cursor: hand; }
+.button.pn-banner-btn:focused { -fx-border-color: transparent; }
+
+.pn-date { -fx-background-color: white; -fx-background-radius: 10; -fx-border-color: #cdd6ca; -fx-border-radius: 10; -fx-border-width: 1; -fx-background-insets: 0; -fx-padding: 0; -fx-pref-height: 40; -fx-min-height: 40; }
+.pn-date:focused { -fx-border-color: #4f6b52; -fx-background-color: white; }
+.pn-date > .text-field, .pn-date > .text-field:focused { -fx-background-color: transparent; -fx-background-insets: 0; -fx-border-color: transparent; -fx-padding: 0 0 0 12; }
+.pn-date > .arrow-button { -fx-background-color: transparent; -fx-background-radius: 0 10 10 0; -fx-background-insets: 0; }
+.pn-date > .arrow-button .arrow, .pn-date > .arrow-button .calendar-icon { -fx-background-color: #4f6b52; }
+.pn-input { -fx-background-color: white; -fx-background-radius: 10; -fx-border-color: #cdd6ca; -fx-border-radius: 10; -fx-padding: 0 12 0 12; -fx-pref-height: 40; -fx-min-height: 40; }
+.pn-input:focused { -fx-border-color: #4f6b52; }
+.pn-input-error, .pn-input-error:focused { -fx-border-color: #b3261e; -fx-border-width: 2; }
+.pn-combo { -fx-background-color: white; -fx-background-radius: 10; -fx-border-color: #c9d3c6; -fx-border-radius: 10; -fx-border-width: 1; -fx-background-insets: 0; -fx-padding: 0; -fx-min-height: 40; -fx-font-size: 14px; }
+.pn-combo:focused { -fx-border-color: #4f6b52; -fx-background-color: white; }
+.pn-combo .arrow-button { -fx-background-color: transparent; -fx-background-radius: 0 10 10 0; -fx-background-insets: 0; -fx-padding: 0 10 0 6; }
+.pn-combo .arrow { -fx-background-color: #4f6b52; }
+.pn-combo .list-cell { -fx-background-color: transparent; -fx-text-fill: #1f2a22; -fx-padding: 0 0 0 12; }
+
+.button.pn-primary, .button.pn-small-primary { -fx-background-color: #4f6b52; -fx-background-radius: 10; -fx-border-color: transparent; -fx-border-width: 0; -fx-text-fill: white; -fx-font-weight: bold; -fx-min-height: 40; -fx-padding: 0 20 0 20; -fx-cursor: hand; }
+.button.pn-primary:hover, .button.pn-small-primary:hover { -fx-background-color: #3f5a43; }
+.button.pn-primary:focused, .button.pn-small-primary:focused { -fx-border-color: transparent; }
+.button.pn-outline { -fx-background-color: white; -fx-background-radius: 10; -fx-border-color: #4f6b52; -fx-border-radius: 10; -fx-border-width: 1; -fx-text-fill: #2f4a34; -fx-font-weight: bold; -fx-min-height: 38; -fx-padding: 0 16 0 16; -fx-cursor: hand; }
+.button.pn-outline:hover { -fx-background-color: #f1f4ef; }
+.button.pn-outline:disabled { -fx-opacity: 0.45; }
+.button.pn-danger { -fx-background-color: #b3261e; -fx-background-radius: 10; -fx-border-color: transparent; -fx-border-width: 0; -fx-text-fill: white; -fx-font-weight: bold; -fx-min-height: 38; -fx-padding: 0 16 0 16; -fx-cursor: hand; }
+.button.pn-danger:disabled { -fx-opacity: 0.35; }
+.button.pn-danger:focused { -fx-border-color: transparent; }
+.button.pn-link { -fx-background-color: transparent; -fx-border-color: transparent; -fx-border-width: 0; -fx-padding: 4 8 4 8; -fx-text-fill: #2f5a3a; -fx-underline: true; -fx-font-weight: bold; -fx-cursor: hand; }
+.button.pn-link-danger { -fx-background-color: transparent; -fx-border-color: transparent; -fx-border-width: 0; -fx-padding: 4 8 4 8; -fx-text-fill: #b3261e; -fx-font-weight: bold; -fx-cursor: hand; }
+.button.pn-link:focused, .button.pn-link-danger:focused { -fx-border-color: transparent; }
+.button.pn-arrow { -fx-background-color: #eef3ec; -fx-background-radius: 8; -fx-border-color: transparent; -fx-border-width: 0; -fx-text-fill: #2f4a34; -fx-font-size: 11px; -fx-min-width: 30; -fx-min-height: 28; -fx-padding: 0; -fx-cursor: hand; }
+.button.pn-arrow:focused { -fx-border-color: transparent; }
+
+.pn-chip-suggested { -fx-background-color: transparent; -fx-background-radius: 999; -fx-border-color: #9caf88; -fx-border-radius: 999; -fx-border-style: segments(4, 3); -fx-padding: 8 14 8 14; -fx-text-fill: #2f4a34; -fx-font-size: 13px; }
+.pn-chip { -fx-background-color: #4f6b52; -fx-background-radius: 999; -fx-padding: 2 4 2 14; }
+.pn-chip-text { -fx-text-fill: white; -fx-font-weight: bold; -fx-font-size: 13px; }
+.button.pn-chip-x { -fx-background-color: transparent; -fx-border-color: transparent; -fx-border-width: 0; -fx-text-fill: white; -fx-font-size: 16px; -fx-padding: 0 8 0 6; -fx-cursor: hand; }
+.button.pn-chip-x:focused { -fx-border-color: transparent; }
+.button.pn-add-chip { -fx-background-color: white; -fx-background-radius: 999; -fx-border-color: #cdd6ca; -fx-border-radius: 999; -fx-border-width: 1; -fx-text-fill: #3e4a42; -fx-font-size: 13px; -fx-padding: 6 14 6 14; -fx-cursor: hand; }
+.button.pn-add-chip:hover { -fx-background-color: #eef3ec; }
+
+.pn-switch { -fx-background-radius: 14; }
+.pn-switch-on { -fx-background-color: #4f6b52; }
+.pn-switch-off { -fx-background-color: #b9c2b6; }
+.pn-knob { -fx-background-color: white; -fx-background-radius: 10; }
+
+.pn-group-name { -fx-font-size: 16px; -fx-font-weight: bold; -fx-text-fill: #25362b; }
+.pn-tag { -fx-background-color: #eef3ec; -fx-background-radius: 999; -fx-padding: 2 10 2 10; -fx-font-size: 11px; -fx-text-fill: #5b6660; }
+.pn-tag-yours { -fx-background-color: #e6ede2; -fx-background-radius: 999; -fx-padding: 2 10 2 10; -fx-font-size: 11px; -fx-font-weight: bold; -fx-text-fill: #2f4a34; }
+.pn-soon { -fx-font-size: 12px; -fx-font-weight: bold; -fx-text-fill: #b4540a; }
+
+.pn-row { -fx-padding: 8 18 8 18; -fx-border-color: transparent transparent #eef1ec transparent; -fx-border-width: 0 0 1 0; }
+.pn-item-name { -fx-font-size: 14px; -fx-font-weight: bold; -fx-text-fill: #1f2a22; }
+.pn-item-done { -fx-font-size: 14px; -fx-text-fill: #8a948d; -fx-strikethrough: true; }
+.pn-from { -fx-font-size: 12px; -fx-text-fill: #2f5a3a; -fx-background-color: #e6ede2; -fx-background-radius: 999; -fx-padding: 2 10 2 10; }
+.pn-handle { -fx-text-fill: #9aa59d; -fx-font-size: 16px; -fx-padding: 0 4 0 0; }
+.pn-badge-ok { -fx-background-color: #e6ede2; -fx-background-radius: 999; -fx-padding: 3 10 3 10; -fx-font-size: 12px; -fx-text-fill: #2f4a34; }
+.pn-badge-soon { -fx-background-color: #fcefe2; -fx-background-radius: 999; -fx-padding: 3 10 3 10; -fx-font-size: 12px; -fx-font-weight: bold; -fx-text-fill: #b4540a; }
+.pn-badge-bad { -fx-background-color: #fbedea; -fx-background-radius: 999; -fx-padding: 3 10 3 10; -fx-font-size: 12px; -fx-font-weight: bold; -fx-text-fill: #b3261e; }
+.button.pn-log { -fx-background-color: white; -fx-background-radius: 8; -fx-border-color: #4f6b52; -fx-border-radius: 8; -fx-border-width: 1; -fx-text-fill: #2f4a34; -fx-font-weight: bold; -fx-min-height: 36; -fx-padding: 0 14 0 14; -fx-cursor: hand; }
+.button.pn-log:hover { -fx-background-color: #eef3ec; }
+.button.pn-pin, .button.pn-pin-on { -fx-background-color: transparent; -fx-border-color: transparent; -fx-border-width: 0; -fx-font-size: 18px; -fx-padding: 0 6 0 6; -fx-cursor: hand; }
+.button.pn-pin { -fx-text-fill: #9aa59d; }
+.button.pn-pin-on { -fx-text-fill: #d2b85a; }
+.button.pn-pin:focused, .button.pn-pin-on:focused { -fx-border-color: transparent; }
+.button.pn-swatch { -fx-background-radius: 999; -fx-border-color: white; -fx-border-radius: 999; -fx-border-width: 2; -fx-min-width: 26; -fx-min-height: 26; -fx-pref-width: 26; -fx-pref-height: 26; -fx-padding: 0; -fx-cursor: hand; }
+.button.pn-swatch:focused { -fx-border-color: white; }

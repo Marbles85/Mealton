@@ -57,7 +57,7 @@ public final class UserDataMapper {
 		List<ShoppingRow> shopping = new ArrayList<>();
 		for (ShoppingItem item : facade.getShoppingItems()) {
 			shopping.add(new ShoppingRow(item.getName(), item.getQuantity(), item.getUnit(), item.getCategory(),
-					item.isChecked()));
+					item.isChecked(), item.isPinned(), item.getSource()));
 		}
 
 		List<LibraryRow> library = new ArrayList<>();
@@ -107,8 +107,16 @@ public final class UserDataMapper {
 					f.estimated(), f.meal(), f.time(), f.note(), f.source()));
 		}
 
+		List<UserData.CategoryRow> categories = new ArrayList<>();
+		for (String view : List.of("pantry", "list")) {
+			com.mealton.pantry.CategoryLayout l = facade.getCategoryLayout(view);
+			categories.add(new UserData.CategoryRow(view, l.isSuggestedOn(), new ArrayList<>(l.getCustom()),
+					new ArrayList<>(l.getOrder()), new java.util.LinkedHashMap<>(l.getColors()),
+					new java.util.LinkedHashMap<>(l.getAliases())));
+		}
+
 		return new UserData(UserData.CURRENT_VERSION, profile, pantry, shopping, library, own, plan, calendar, diary,
-				new ArrayList<>(facade.getMealTags()));
+				new ArrayList<>(facade.getMealTags()), categories);
 	}
 
 	// ---------------- data -> facade ----------------
@@ -216,6 +224,23 @@ public final class UserDataMapper {
 			});
 		}
 
+		for (UserData.CategoryRow row : orEmpty(data.categories())) {
+			attempt(warnings, "categories for " + row.view(), () -> {
+				com.mealton.pantry.CategoryLayout l = facade.getCategoryLayout(row.view());
+				l.setSuggestedOn(row.suggestedOn());
+				for (String c : orEmpty(row.custom())) {
+					attempt(warnings, "category '" + c + "'", () -> l.addCustom(c));
+				}
+				l.setOrder(orEmpty(row.order()));
+				if (row.colors() != null) {
+					row.colors().forEach(l::setColor);
+				}
+				if (row.aliases() != null) {
+					row.aliases().forEach(l::rename);
+				}
+			});
+		}
+
 		for (PantryRow row : orEmpty(data.pantry())) {
 			attempt(warnings, "pantry item '" + row.name() + "'",
 					() -> facade.addPantryItem(new PantryItem(row.name(), row.quantity(), row.unit(), row.category(),
@@ -226,12 +251,15 @@ public final class UserDataMapper {
 			attempt(warnings, "shopping item '" + row.name() + "'", () -> {
 				ShoppingItem item = facade
 						.addShoppingItem(new ShoppingItem(row.name(), row.quantity(), row.unit(), row.category()));
+				item.setPinned(row.pinned());
+				item.setSource(row.source());
 				if (row.checked()) {
 					facade.toggleShoppingItem(item.getId());
 				}
 			});
 		}
-		facade.forgetShoppingHistory(); // loading must not look like something the user can undo
+		facade.forgetShoppingHistory();
+		facade.forgetPantryHistory(); // loading must not look like something the user can undo
 
 		for (PlanRow row : orEmpty(data.plan())) {
 			attempt(warnings, "planned meal " + row.day() + " " + row.meal(), () -> {

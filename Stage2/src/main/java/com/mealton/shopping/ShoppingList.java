@@ -47,6 +47,25 @@ public class ShoppingList {
 		return !remove(List.of(id)).isEmpty();
 	}
 
+	/**
+	 * Moves an item to sit just before another one (or to the end when beforeId is
+	 * not on the list).
+	 */
+	public void moveBefore(long id, long beforeId) {
+		ShoppingItem moving = findById(id).orElse(null);
+		if (moving == null || id == beforeId) {
+			return;
+		}
+		items.remove(moving);
+		int k = -1;
+		for (int i = 0; i < items.size(); i++) {
+			if (items.get(i).getId() == beforeId) {
+				k = i;
+			}
+		}
+		items.add(k < 0 ? items.size() : k, moving);
+	}
+
 	public Optional<ShoppingItem> findById(long id) {
 		return items.stream().filter(i -> i.getId() == id).findFirst();
 	}

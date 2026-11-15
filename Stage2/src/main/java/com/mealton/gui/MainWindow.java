@@ -58,6 +58,17 @@ public class MainWindow extends StackPane {
 		pages.put(PANTRY_PAGE, pantryView);
 		pages.put(PROFILE_PAGE, profileView);
 
+		// hand-offs between pages
+		pantryView.setOnLogItem(id -> {
+			showPage(LOG_PAGE);
+			diaryView.selectPantryItem(id);
+		});
+		pantryView.setOnSeeRecipes(() -> showPage(RECIPES_PAGE));
+		diaryView.setOnViewShoppingList(() -> {
+			showPage(PANTRY_PAGE);
+			pantryView.showShoppingList();
+		});
+
 		// after the AI agent uses a tool, the pages reload what changed
 		ChatView chat = new ChatView(facade, () -> {
 			pantryView.refreshAll();
@@ -144,6 +155,8 @@ public class MainWindow extends StackPane {
 				plan.refresh();
 			} else if (page instanceof FoodDiaryView diary) {
 				diary.refresh();
+			} else if (page instanceof PantryShoppingView pantryPage) {
+				pantryPage.refreshAll();
 			}
 			pageHost.setCenter(page);
 			sidebar.setActive(name);

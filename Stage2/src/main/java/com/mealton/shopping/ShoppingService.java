@@ -35,6 +35,22 @@ public class ShoppingService {
 		history.execute(new ToggleItemCommand(list, id));
 	}
 
+	/** Puts an item just before another one (drag and drop on the page). */
+	public void move(long id, long beforeId) {
+		list.moveBefore(id, beforeId);
+	}
+
+	/**
+	 * Pins or unpins an item (undoable). @throws IllegalArgumentException if the id
+	 * is unknown
+	 */
+	public void togglePin(long id) {
+		if (list.findById(id).isEmpty()) {
+			throw new IllegalArgumentException("No shopping item with id " + id);
+		}
+		history.execute(new TogglePinCommand(list, id));
+	}
+
 	/**
 	 * Deletes items as a single undoable step. @return how many existing items were
 	 * deleted

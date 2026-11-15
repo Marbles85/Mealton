@@ -87,6 +87,17 @@ public class PantryItem {
 		return unit;
 	}
 
+	public void setUnit(String unit) {
+		this.unit = unit == null ? "" : unit.trim();
+	}
+
+	/** A separate copy (same id), used to remember the pantry for undo. */
+	public PantryItem copy() {
+		PantryItem c = new PantryItem(name, quantity, unit, category, expiryDate);
+		c.id = id;
+		return c;
+	}
+
 	public String getCategory() {
 		return category;
 	}

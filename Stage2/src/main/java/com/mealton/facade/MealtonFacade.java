@@ -128,12 +128,122 @@ public class MealtonFacade {
 
 	// ---------------- Pantry (F06) ----------------
 
+	private final java.util.Deque<List<PantryItem>> pantryUndo = new java.util.ArrayDeque<>();
+	private final java.util.Map<String, com.mealton.pantry.CategoryLayout> layouts = new java.util.HashMap<>();
+
+	private void rememberPantry() {
+		pantryUndo.push(pantry.snapshot());
+		while (pantryUndo.size() > 50) {
+			pantryUndo.removeLast();
+		}
+	}
+
 	public PantryItem addPantryItem(PantryItem item) {
+		rememberPantry();
 		return pantry.addItem(item);
 	}
 
+	/**
+	 * The pantry line with the same name and unit, if there is one (for the
+	 * "already in your pantry" notice).
+	 */
+	public Optional<PantryItem> findPantryDuplicate(String name, String unit) {
+		return pantry.findDuplicate(name, unit);
+	}
+
+	/** Adds the item as its own line even though the same food is already there. */
+	public PantryItem addPantryItemSeparate(PantryItem item) {
+		rememberPantry();
+		return pantry.addItemSeparately(item);
+	}
+
+	/**
+	 * Saves changes made to a pantry item (name, amount, unit, category, expiry).
+	 */
+	public void updatePantryItem(PantryItem item) {
+		rememberPantry();
+		pantry.updateItem(item);
+	}
+
+	/**
+	 * Saves changes to several pantry items as one undoable step (the page's Edit
+	 * mode).
+	 */
+	public void updatePantryItems(Collection<PantryItem> items) {
+		if (items.isEmpty()) {
+			return;
+		}
+		rememberPantry();
+		for (PantryItem item : items) {
+			pantry.updateItem(item);
+		}
+	}
+
 	public int removePantryItems(Collection<Long> ids) {
+		rememberPantry();
 		return pantry.removeItems(ids).size();
+	}
+
+	public boolean canUndoPantry() {
+		return !pantryUndo.isEmpty();
+	}
+
+	/** Puts the pantry back the way it was before the last change. */
+	public boolean undoPantry() {
+		if (pantryUndo.isEmpty()) {
+			return false;
+		}
+		pantry.restore(pantryUndo.pop());
+		return true;
+	}
+
+	/** Forgets pantry undo steps (used after loading saved items). */
+	public void forgetPantryHistory() {
+		pantryUndo.clear();
+	}
+
+	/** The category layout of "pantry" or "list". */
+	public com.mealton.pantry.CategoryLayout getCategoryLayout(String view) {
+		return layouts.computeIfAbsent("list".equals(view) ? "list" : "pantry",
+				k -> new com.mealton.pantry.CategoryLayout());
+	}
+
+	/** Puts a shopping item just before another one (use -1 for the end). */
+	public void moveShoppingItem(long id, long beforeId) {
+		shopping.move(id, beforeId);
+	}
+
+	/** Puts a pantry item just before another one (use -1 for the end). */
+	public void movePantryItem(long id, long beforeId) {
+		if (id == beforeId) {
+			return;
+		}
+		rememberPantry();
+		List<PantryItem> all = pantry.snapshot();
+		PantryItem moving = null;
+		for (PantryItem p : all) {
+			if (p.getId() == id) {
+				moving = p;
+			}
+		}
+		if (moving == null) {
+			pantryUndo.pop();
+			return;
+		}
+		all.remove(moving);
+		int k = all.size();
+		for (int i = 0; i < all.size(); i++) {
+			if (all.get(i).getId() == beforeId) {
+				k = i;
+			}
+		}
+		all.add(k, moving);
+		pantry.restore(all);
+	}
+
+	/** Pins or unpins a shopping item. */
+	public void toggleShoppingPin(long id) {
+		shopping.togglePin(id);
 	}
 
 	public List<PantryItem> getPantryItems() {

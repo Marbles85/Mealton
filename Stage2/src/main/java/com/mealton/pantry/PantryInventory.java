@@ -43,6 +43,41 @@ public class PantryInventory {
 		return stored;
 	}
 
+	/**
+	 * Adds the item as its own line even when the pantry already has the same food.
+	 */
+	public PantryItem addItemSeparately(PantryItem item) {
+		PantryItem stored = repository.save(item);
+		notifyChanged();
+		return stored;
+	}
+
+	/** The pantry line with the same name and unit, if there is one. */
+	public Optional<PantryItem> findDuplicate(String name, String unit) {
+		return repository.findAll().stream().filter(p -> p.getName().equalsIgnoreCase(name)
+				&& p.getUnit().equalsIgnoreCase(unit == null ? "" : unit.trim())).findFirst();
+	}
+
+	/** Copies of every item in order, so the pantry can be put back later. */
+	public List<PantryItem> snapshot() {
+		List<PantryItem> copies = new ArrayList<>();
+		for (PantryItem p : repository.findAll()) {
+			copies.add(p.copy());
+		}
+		return copies;
+	}
+
+	/** Puts the pantry back exactly as a snapshot had it. */
+	public void restore(List<PantryItem> snapshot) {
+		for (PantryItem p : repository.findAll()) {
+			repository.delete(p.getId());
+		}
+		for (PantryItem p : snapshot) {
+			repository.save(p.copy());
+		}
+		notifyChanged();
+	}
+
 	private Optional<PantryItem> findDuplicate(PantryItem item) {
 		return repository.findAll().stream().filter(
 				p -> p.getName().equalsIgnoreCase(item.getName()) && p.getUnit().equalsIgnoreCase(item.getUnit()))

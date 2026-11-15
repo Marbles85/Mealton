@@ -3,10 +3,12 @@ package com.mealton.shopping;
 public class ShoppingItem {
 
 	private long id;
-	private final String name;
+	private String name;
 	private double quantity;
-	private final String unit;
+	private String unit;
 	private String category;
+	private boolean pinned;
+	private String source = "";
 	private ItemState state = PendingState.INSTANCE;
 
 	public ShoppingItem(String name, double quantity, String unit, String category) {
@@ -62,6 +64,41 @@ public class ShoppingItem {
 
 	public void setCategory(String category) {
 		this.category = (category == null || category.isBlank()) ? "Uncategorized" : category.trim();
+	}
+
+	public boolean isPinned() {
+		return pinned;
+	}
+
+	public void setPinned(boolean pinned) {
+		this.pinned = pinned;
+	}
+
+	/** The recipe this was added for, or an empty text. */
+	public String getSource() {
+		return source;
+	}
+
+	public void setSource(String source) {
+		this.source = source == null ? "" : source.trim();
+	}
+
+	public void setName(String name) {
+		if (name == null || name.isBlank()) {
+			throw new IllegalArgumentException("Item name must not be empty.");
+		}
+		this.name = name.trim();
+	}
+
+	public void setUnit(String unit) {
+		this.unit = unit == null ? "" : unit.trim();
+	}
+
+	public void setQuantity(double quantity) {
+		if (Double.isNaN(quantity) || Double.isInfinite(quantity) || quantity <= 0) {
+			throw new IllegalArgumentException("Quantity must be a positive number.");
+		}
+		this.quantity = quantity;
 	}
 
 	public String getName() {
