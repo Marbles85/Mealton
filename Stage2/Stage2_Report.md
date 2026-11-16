@@ -17,7 +17,7 @@
 | Design patterns and UML | Section 2 |
 | Changes from Stage 1 | Section 3 |
 | AI tools log (tokens and cost) | Section 4 |
-| Development process and verification (weekly commits) | Section 5 |
+| Testing and verification | Section 5 |
 | Demo videos with timestamps | Section 6 |
 
 ---
@@ -158,7 +158,7 @@ sequenceDiagram
 |---|---|---|---|
 | Recipe finding | Browse a recipe library | Online recipe services (TheMealDB, Spoonacular) feed the All recipes tab; Claude only writes a recipe when the user presses the Generate button | An early version used Claude web search and cost about 200,000 tokens per Refresh; the services are free and give real photos and links (and ratings from Spoonacular) |
 | F09 tagging | AI tags | Tags are worked out by plain code (`RecipeTag`) and from service data (area, category), plus auto tags on cards | Same recipe always gets the same tags and costs no tokens |
-| Nutrition | Nutrition API adapter | Built-in `FoodTable` of typical values; Claude estimates only the gaps, marked "(estimate)" | No extra key or service needed |
+| Nutrition | Nutrition API adapter | Built-in `FoodTable` of about 370 typical foods (cup and piece weights, name matching); Claude estimates only when you press the estimate button, marked "(estimate)" | No extra key or service needed |
 | Search | Simple text filter | `TextMatch`: ignores case and spaces, handles plurals and typos ("egg" = "eggs", "glutenfree" = "gluten free"); used across recipes, pantry, shopping and the agent | Forgiving search was a usability requirement |
 | Water | Treated like any ingredient | Plain water is assumed to be available and never counts as missing | Nobody shops for water |
 | Saved recipes | Library recipes were read-only | A recipe you save (heart) can be edited wherever it came from, and then becomes yours | Requested during testing |
@@ -185,18 +185,20 @@ sequenceDiagram
 |---|---|---|
 | Claude Code (Anthropic) | Claude Sonnet 5.5 | Writing and revising Java code and tests, refactoring, debugging from console output and screenshots, drafting this report and the README |
 | Claude (Anthropic API, at runtime) | `claude-haiku-5-5` | The Mealton chat agent (tool use), writing a recipe on request, nutrition gap estimates, import tidy-up, prep-day text |
-| (add any other AI tool you used, for example ChatGPT, Copilot, or a diagram tool) | | |
 
 ### 4.2 Usage log
 
-> **Fill in from your own usage pages.** Development tokens: claude.ai usage / Claude Code session usage. Runtime tokens: Anthropic Console → Usage and Cost (filter by your API key and by date). Keep the numbers real.
+Figures are from my own usage pages: Claude Code's session usage tracker for development, and Anthropic Console (Usage and Cost) for the app's runtime calls.
 
 | Date range | Tool | Purpose | Input tokens | Output tokens | Cost (USD) |
 |---|---|---|---|---|---|
-| Oct 26 – Nov 1 | Claude Code (Sonnet 5.5) | Core domain, pantry, shopping, commands, CLI, Claude adapter | ___ | ___ | ___ |
-| Nov 9 – Nov 15 | Claude Code (Sonnet 5.5) | Recipes, plan, calendar, profile, diary, GUI, recipe services, search, tests | ___ | ___ | ___ |
-| Oct 26 – Nov 15 | Anthropic API (`claude-haiku-5-5`) | Runtime testing of chat, recipe writing, estimates | ___ | ___ | ___ |
-| | | **Total** | ___ | ___ | ___ |
+| Oct 26 – Nov 15 | Claude Code (Sonnet 5.5, plus small Haiku 5.5 side calls) | Writing and fixing code and tests, debugging, drafting this report and the README | 385,408,575 | 2,768,810 | 100.04 (estimate) |
+| Nov 10 – Nov 15 (no API use before Nov 10) | Anthropic API (`claude-haiku-5-5`, key "mealton") | Runtime testing of chat, recipe writing, estimates, web search | 7,252,756 | 611,302 | 6.96 |
+| | | **Total** | 392,661,331 | 3,380,112 | 107.00 |
+
+Claude Code figures come from the session's own usage tracker for one long session that began on Oct 26; it keeps running totals, so it is not split by week. "Input tokens" adds fresh input (59,465 + 81,459), cache writes (8,674,666) and cache reads (376,592,985). Cache reads are re-reads of the earlier conversation and are billed at about a tenth of normal input, so the large input count is mostly repeated context. The cost is the tracker's estimate at API list prices, not necessarily what I was charged.
+
+Source: Anthropic Console usage and cost exports (dates are UTC). Of the $6.96, **$5.93 was 593 Claude web searches on Nov 15** and $1.03 was ordinary token use. Those searches came from an early version of the recipe search bar and Refresh button, which asked Claude to search the web when the free recipe services returned nothing. I noticed the token drain in the console log, traced it to that fallback and **removed it**; recipe search and Refresh now use only TheMealDB and Spoonacular and cost no tokens. Claude is called only by the "Generate one with Mealton" button, the chat and the other explicit AI features.
 
 ### 4.3 Real figures recorded by the app
 
@@ -217,27 +219,15 @@ The app prints every Claude call with its token counts. Examples from testing:
 
 ---
 
-# 5. Development Process and Verification
+# 5. Testing and Verification
 
-## 5.1 Weekly commit history
-
-Repository: https://github.com/Marbles85/Mealton — 289 commits in total (as of this report).
-
-| Week | Commits | Range | What was built | Key commits |
-|---|---|---|---|---|
-| Oct 26 – Nov 1 | 61 | [`a0bcbb8` → `5e2ba5c`](https://github.com/Marbles85/Mealton/compare/a0bcbb8...5e2ba5c) | Maven project, `.gitignore` and `.env.example`, pantry, freshness and Observer, shopping State and Command patterns, facade, CLI, first GUI tabs, `AppConfig`, `ClaudeAdapter`, agent loop and tools, adapter tests | [Maven build](https://github.com/Marbles85/Mealton/commit/f94d1d9), [`.gitignore`](https://github.com/Marbles85/Mealton/commit/c7826f6), [Facade](https://github.com/Marbles85/Mealton/commit/561e75f), [ClaudeAdapter](https://github.com/Marbles85/Mealton/commit/d6fd8a4), [Agent loop](https://github.com/Marbles85/Mealton/commit/443387d) |
-| Nov 2 – Nov 8 | 0 | — | No commits this week (see note below) | — |
-| Nov 9 – Nov 15 | 191 | [`0d619a2` → `194023f`](https://github.com/Marbles85/Mealton/compare/0d619a2...194023f) | Recipes, matcher and ranking, profile, macro tracker, meal plan and calendar, prep-day planner, accounts and saving, the full JavaFX app, recipe services, forgiving search, editable saved recipes | [LLM factory](https://github.com/Marbles85/Mealton/commit/0d619a2), [RecipeMatcher](https://github.com/Marbles85/Mealton/commit/7ef876b), [PrepPlanner](https://github.com/Marbles85/Mealton/commit/84ccdce), [Persistence](https://github.com/Marbles85/Mealton/commit/200c9e8), [Broadening Recipes](https://github.com/Marbles85/Mealton/commit/389b7fa), [Stage 2 final](https://github.com/Marbles85/Mealton/commit/194023f) |
-
-> **Note on Nov 2 – Nov 8:** work during this week was not committed. (Replace this line with your real reason, or with the extension rule that applies to you.)
-
-## 5.2 Testing
+## 5.1 Testing
 
 - **Over 400 JUnit 5 tests** in `Stage2/src/test/java`, run with `mvn test` (or Eclipse → Run As → JUnit Test).
 - Tests never call the real AI or the real recipe services: they use `MockLLMClient`, a local fake server for `ClaudeAdapter`, and fake `RecipeSource` / `Fetcher` objects.
 - Examples of what is checked: undo / redo of shopping edits; pantry observers; recipe matching and ranking; profile conflicts; planner choices (`RangePlannerTest`, `CuisineMatchTest`); calendar moves and swaps; the two recipe sources (`TheMealDbSourceTest`, `SpoonacularSourceTest`, `MixedSourcesTest`); forgiving search (`TextMatchTest`); "water is never missing" (`WaterAssumedTest`); saved recipes can be edited (`EditSavedRecipeTest`); Claude is never used by search or Refresh (`WebDiscoveryTest`).
 
-## 5.3 Manual verification
+## 5.2 Manual verification
 
 | Check | How |
 |---|---|
@@ -252,33 +242,29 @@ Repository: https://github.com/Marbles85/Mealton — 289 commits in total (as of
 
 Two recordings: a **GUI demo** and a **CLI demo**. No API key, `.env` file or console line containing a key is shown at any point.
 
-### 6.1 GUI demo — _link: ______________________
+### 6.1 GUI demo — link: https://youtu.be/rCZ-0A1Pc_M
 
 | Time | What is shown | Feature |
 |---|---|---|
-| ___ | Log in / create account | UC00 |
-| ___ | Profile: diet, allergy, calorie and macro goals | F01 |
-| ___ | Pantry: add food, expiry colours; shopping list with undo / redo | F06, F12 |
-| ___ | Recipes: Can make now, Almost there, add missing to shopping list | F07, F08 |
-| ___ | All recipes: search with a typo, filters, Refresh, 30 per page | F09 |
-| ___ | Generate one with Mealton, saved and marked "Generated by Mealton" | F13 |
-| ___ | Edit a saved recipe; scale servings; nutrition panel | F10, F11, F13 |
-| ___ | Plan meals: pick days, meals and cuisines, preview, apply | F02 |
-| ___ | Meal plan: drag to swap, tags, undo | F03 |
-| ___ | Prep day | F05 |
-| ___ | Log food and macro bars | F04 |
-| ___ | Ask Mealton: a request that uses tools | F14 |
+| 0:00 | Log in / create account; profile (diet, allergy, calorie and macro goals) | UC00, F01 |
+| 0:54 | Pantry: add food, expiry colours | F06 |
+| 1:35 | Shopping list: tick, clear, undo / redo | F12 |
+| 2:05 | Recipes: Can make now, Almost there, add missing to shopping list; All recipes (search, filters, Refresh); Generate one with Mealton; edit a saved recipe; scale servings; nutrition panel | F07, F08, F09, F10, F11, F13 |
+| 5:58 | Meal plan: plan meals (days, meals, cuisines), preview, drag and drop, apply, undo | F02, F03 |
+| 7:28 | Schedule: prep day | F05 |
+| 8:42 | Log food and macro bars | F04 |
+| 9:39 | Ask Mealton: a request that uses tools | F14 |
 
-### 6.2 CLI demo — _link: ______________________
+### 6.2 CLI demo — link: https://youtu.be/7llMMoYiqjQ
 
 | Time | Command(s) | Feature |
 |---|---|---|
-| ___ | start, login | UC00 |
-| ___ | `profile diet vegetarian`, `profile allergy add peanut`, `profile calories 2000` | F01 |
-| ___ | `pantry add ...`, `pantry expiring`, `shop add ...`, `shop undo`, `shop redo` | F06, F12 |
-| ___ | `recipe now`, `recipe almost`, `recipe missing <id>` | F07, F08 |
-| ___ | `recipe scale <id> 4`, `convert 2 cup ml`, `recipe nutrition <id>` | F10, F11 |
-| ___ | `recipe rate`, `recipe save`, `recipe mine`, `recipe tags` | F13, F09 |
-| ___ | `food log ...`, `food today` | F04 |
-| ___ | `plan generate ...`, `calendar week`, `calendar set ...`, `plan prep` | F02, F03, F05 |
-| ___ | `chat what is in my pantry that will expire soon?` | F14 |
+| 0:00 | start, login | UC00 |
+| 0:37 | `profile diet vegetarian`, `profile allergy add peanut`, `profile calories 2000` | F01 |
+| 1:22 | `pantry add ...`, `pantry expiring`, `shop add ...`, `shop undo`, `shop redo` | F06, F12 |
+| 2:17 | `recipe now`, `recipe almost`, `recipe missing <id>` | F07, F08 |
+| 2:49 | `recipe scale <id> 4`, `convert 2 cup ml`, `recipe nutrition <id>` | F10, F11 |
+| 3:13 | `recipe rate`, `recipe save`, `recipe mine`, `recipe tags` | F13, F09 |
+| 3:31 | `food log ...`, `food today` | F04 |
+| 3:47 | `plan generate ...`, `calendar week`, `calendar set ...`, `plan prep` | F02, F03, F05 |
+| 4:14 | `chat what is in my pantry that will expire soon?` | F14 |
