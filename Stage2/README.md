@@ -9,7 +9,7 @@ EECS 3311, Fall 2026. Java implementation of the Mealton design from Stage 1. It
 | UC00 | Accounts: sign up / log in, your data is saved per user | GUI login screen, CLI login prompt |
 | F01 | Profile: diet, allergies, calorie and macro goals (recipes show warnings) | GUI "Profile", CLI `profile ...`, chat |
 | F02 | AI meal plan for any dates (variety or pantry-first, cuisines, preview, rearrange, apply) | GUI "Meal plan" > Plan meals, CLI `plan ...`, chat |
-| F03 | Meal calendar with custom labels, move, swap, undo | GUI "Meal plan", CLI `calendar ...`, chat |
+| F03 | Meal calendar with custom labels, move, swap, undo, and Edit week (select, select all, delete, drag and drop) | GUI "Meal plan", CLI `calendar ...`, chat |
 | F04 | Food diary / macro tracker compared with profile goals | GUI "Log food", CLI `food ...`, chat |
 | F05 | Prep-day planner | GUI "Meal plan" > Prep day, CLI `plan prep`, chat |
 | F06 | Pantry with freshness / expiry alerts | GUI "Pantry & list", CLI `pantry ...`, chat |
@@ -17,7 +17,7 @@ EECS 3311, Fall 2026. Java implementation of the Mealton design from Stage 1. It
 | F08 | Missing ingredients go to the shopping list | GUI button, CLI `recipe missing`, chat |
 | F09 | Recipe filters, search (typos and plurals are fine) and tags | GUI "Recipes", CLI `recipe tags`, chat |
 | F10 | Unit conversion and serving scaling | GUI recipe page, CLI `convert`, `scale`, chat |
-| F11 | Nutrition breakdown (built-in table, AI estimate for gaps) | GUI recipe page, CLI `recipe nutrition`, chat |
+| F11 | Nutrition breakdown (built-in table of about 370 foods; an AI estimate only when you press the estimate button) | GUI recipe page, CLI `recipe nutrition`, chat |
 | F12 | Shopping list with undo / redo | GUI "Pantry & list", CLI `shop ...`, chat |
 | F13 | Recipes: rate, save (heart), My Recipes, edit saved recipes, import from a link | GUI "Recipes", CLI `recipe ...`, chat |
 | F14 | AI chat agent with tool use and memory | GUI "Ask Mealton", CLI `chat` |
@@ -115,8 +115,8 @@ Log in or create an account (an email address is used as the username). Your dat
 
 - **Recipes**: four tabs (Can make now, Almost there, All recipes, My Recipes), 30 recipes per page. Search is forgiving (capitals, spaces, plurals and typos are fine). Filter chips can be stacked, and a **Mealton generated** chip shows recipes the AI wrote or edited. **Refresh** and the search bar look for new recipes in TheMealDB and Spoonacular (no AI tokens). The **Generate with Mealton** button at the bottom asks Claude to write one recipe; it is saved to My Recipes. Click a recipe to see steps, nutrition, scaling, the heart (save), and Edit (for saved recipes).
 - **Log food**: log meals and see macro bars against your goals.
-- **Meal plan**: the calendar, **Plan meals** (choose dates, meals, cuisines, then preview, drag to rearrange, lock the ones you like and regenerate the rest, then apply) and **Prep day**.
-- **Pantry & list**: pantry with expiry colours; shopping list with undo / redo.
+- **Meal plan**: the calendar, **Plan meals** (choose dates, meals, cuisines, then preview, drag to rearrange, copy a meal with the Duplicate toggle, remove a meal with the ✕ button, lock the ones you like and regenerate the rest, which also fills any empty meal, then apply). **Also look for new recipes online** adds extra recipes from TheMealDB and Spoonacular before planning. **Edit week** on the calendar lets you tick meals (or a whole day), select all, delete and drag meals around. **Prep day** schedules the cooking and shows what to buy; it remembers your start time and time limit.
+- **Pantry & list**: pantry with expiry colours; shopping list with undo / redo. Click a category's coloured dot (or Tick all) to tick everything in it, and clear the ticked items to move them into your pantry.
 - **Profile**: diet, allergies, goals.
 - **Ask Mealton**: chat with the AI; changes it makes appear on the other pages straight away.
 
@@ -124,7 +124,7 @@ Some recipes loaded from the web can come through incomplete or glitched. Each o
 
 ### AI cost
 
-Only these use Claude: the chat, the Generate with Mealton button, nutrition estimates for ingredients the built-in table does not know, import-from-link tidy-up and the prep-day text. Searching, filtering and Refresh never do. Every Claude call prints a line in the console, for example `[Mealton] Claude call from ...` followed by `Claude replied: N input / N output tokens`, so you can see exactly what is used.
+Only these use Claude: the chat, the Generate with Mealton button, the nutrition estimate button (for a recipe whose ingredients the built-in table does not know), import-from-link tidy-up and the prep-day text. Searching, filtering and Refresh never do. Every Claude call prints a line in the console, for example `[Mealton] Claude call from ...` followed by `Claude replied: N input / N output tokens`, so you can see exactly what is used.
 
 ## Run the tests
 
@@ -149,6 +149,6 @@ Facade/MVC (`MealtonFacade`), Command (shopping and calendar undo/redo), State (
 - Spoonacular's free plan has a daily limit; the app reports it and keeps working with TheMealDB.
 - Recipes loaded from the web can be incomplete or glitched; check the original link.
 - The profile check uses ingredient words (for example "chicken is not vegetarian"). It is a helpful warning, not a safety guarantee, and does not judge gluten-free or keto.
-- Food values come from a small built-in table of typical figures; other foods are AI estimates and are marked "(estimate)".
+- Food values come from a built-in table of about 370 typical foods. Recipes with ingredients the table does not know show "Nutrition incomplete" until you press the estimate button, and those AI estimates are marked "(estimate)".
 - When two planned recipes share an ingredient, the shopping list gets the larger amount, not the sum.
 - A few GUI conveniences (for example month-view drag and drop) have no CLI equivalent.
